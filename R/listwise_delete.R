@@ -97,10 +97,11 @@ lwd_refinement <- function(msets, global.data, treated.ts,
   idx <- sapply(t.newsets, function(x) !any(is.na(x)))
   t.newsets <- t.newsets[idx]
   if(length(t.newsets) == 0) stop("There are no matched sets!")
-  treated.ts <- as.numeric(unlist(strsplit(names(t.newsets), split = "[.]"))[c(F,T)])
-  treated.ids <- as.numeric(unlist(strsplit(names(t.newsets), split = "[.]"))[c(T,F)])
+  treated.ts <- as.numeric(sub(".*\\.", "", names(t.newsets)))
+  treated.ids <- as.numeric(sub("\\..*", "", names(t.newsets)))
   if(refinement.method != "mahalanobis")
   {
+    
     t.newsets <- set_lwd_refinement(t.newsets, global.data, treated.ts, treated.ids, lag, refinement.method, lead, 
                                               verbose, size.match, unit.id, time.id, covs.formula, match.missing, treatment,
                                     use.diag.covmat = use.diag.covmat)
@@ -108,8 +109,8 @@ lwd_refinement <- function(msets, global.data, treated.ts,
   
   class(e.sets) <- 'list'
   
-  treated.ts <- as.numeric(unlist(strsplit(names(e.sets), split = "[.]"))[c(F,T)])
-  treated.ids <- as.numeric(unlist(strsplit(names(e.sets), split = "[.]"))[c(T,F)])
+  treated.ts <- as.numeric(sub(".*\\.", "", names(e.sets)))
+  treated.ids <- as.numeric(sub("\\..*", "", names(e.sets)))
   
   esetlist <- logical(length(e.sets))
   if(length(e.sets) > 0)
@@ -154,15 +155,17 @@ set_lwd_refinement <- function(mset, local.data, time, id,
 {
   treated.ts <- time
   treated.ids <- id
-  ordered.data <- local.data 
+  ordered.data <- as.matrix(local.data)
   msets <- mset
   if(refinement.method == "mahalanobis")
   {
+    old.lag <- lag
+    lag <- 0
     tlist <- expand.treated.ts(lag, treated.ts = treated.ts)
-    idxlist <- get_yearly_dmats(ordered.data, treated.ids, tlist, paste0(ordered.data[,unit.id], ".", 
-                                                                         ordered.data[, time.id]), matched_sets = msets, lag)
+    idxlist <- get_yearly_dmats(ordered.data, treated.ids, tlist, matched_sets = msets, lag)
     mahalmats <- build_maha_mats(ordered_expanded_data = ordered.data, idx =  idxlist)
     msets <- handle_mahalanobis_calculations(mahalmats, msets, size.match, verbose, use.diagonal.covmat = use.diag.covmat)
+    lag <- old.lag
   }
   if(refinement.method == "ps.msm.weight" | refinement.method == "CBPS.msm.weight")
   {
@@ -172,8 +175,7 @@ set_lwd_refinement <- function(mset, local.data, time, id,
     {
       f <- lead[i]
       tf <- expand.treated.ts(lag, treated.ts = treated.ts + f)
-      tf.index <- get_yearly_dmats(ordered.data, treated.ids, tf, paste0(ordered.data[,unit.id], ".", 
-                                                                         ordered.data[, time.id]), matched_sets = msets, lag)
+      tf.index <- get_yearly_dmats(ordered.data, treated.ids, tf, matched_sets = msets, lag)
       expanded.sets.tf <- build_ps_data(tf.index, ordered.data, lag)
       #pre.pooled <- ordered.data[ordered.data[, time.id] %in% (treated.ts + f), ]
       pre.pooled <- rbindlist(expanded.sets.tf)
@@ -182,6 +184,7 @@ set_lwd_refinement <- function(mset, local.data, time, id,
       #do the column removal thing
       cols.to.remove <- which(unlist(lapply(pooled, function(x){all(x[1] == x)}))) #checking for columns that only have one value
       cols.to.remove <- unique(c(cols.to.remove, which(!colnames(pooled) %in% colnames(t(unique(t(pooled))))))) #removing columns that are identical to another column 
+      cols.to.remove <- cols.to.remove[cols.to.remove > 3] #leave the first three columns alone
       if(length(cols.to.remove) > 0)
       {
         class(pooled) <- c("data.frame")
@@ -231,14 +234,14 @@ set_lwd_refinement <- function(mset, local.data, time, id,
   {
     if(!all(refinement.method %in% c("CBPS.weight", "CBPS.match", "ps.weight", "ps.match"))) stop("please choose valid refinement method")
     tlist <- expand.treated.ts(lag, treated.ts = treated.ts)
-    idxlist <- get_yearly_dmats(ordered.data, treated.ids, tlist, paste0(ordered.data[,unit.id], ".", 
-                                                                         ordered.data[, time.id]), matched_sets = msets, lag)
+    idxlist <- get_yearly_dmats(ordered.data, treated.ids, tlist, matched_sets = msets, lag)
     expanded.sets.t0 <- build_ps_data(idxlist, ordered.data, lag)
     pre.pooled <- rbindlist(expanded.sets.t0)
     pooled <- unique(pre.pooled[complete.cases(pre.pooled), ])
     
     cols.to.remove <- which(unlist(lapply(pooled, function(x){all(x[1] == x)}))) #checking for columns that only have one value
     cols.to.remove <- unique(c(cols.to.remove, which(!colnames(pooled) %in% colnames(t(unique(t(pooled))))))) #removing columns that are identical to another column 
+    cols.to.remove <- cols.to.remove[cols.to.remove > 3] #leave the first three columns alone
     if(length(cols.to.remove) > 0)
     {
       class(pooled) <- c("data.frame")

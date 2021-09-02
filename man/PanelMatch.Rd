@@ -4,12 +4,27 @@
 \alias{PanelMatch}
 \title{PanelMatch}
 \usage{
-PanelMatch(lag, time.id, unit.id, treatment, refinement.method,
-  size.match = 10, data, match.missing = TRUE, covs.formula = NULL,
-  verbose = FALSE, qoi, lead = 0, outcome.var,
-  exact.match.variables = NULL, forbid.treatment.reversal = FALSE,
-  matching = TRUE, listwise.delete = FALSE,
-  use.diagonal.variance.matrix = FALSE)
+PanelMatch(
+  lag,
+  time.id,
+  unit.id,
+  treatment,
+  refinement.method,
+  size.match = 10,
+  data,
+  match.missing = TRUE,
+  covs.formula = NULL,
+  verbose = FALSE,
+  qoi,
+  lead = 0,
+  outcome.var,
+  exact.match.variables = NULL,
+  forbid.treatment.reversal = FALSE,
+  matching = TRUE,
+  listwise.delete = FALSE,
+  use.diagonal.variance.matrix = FALSE,
+  placebo.test = FALSE
+)
 }
 \arguments{
 \item{lag}{An integer value indicating the length of treatment history periods to be matched on}
@@ -46,8 +61,7 @@ The variables specified in this formula are used to define the similarity/distan
 \item{verbose}{option to include more information about the \code{matched.set} object calculations, 
 like the distances used to create the refined sets and weights.}
 
-\item{qoi}{quantity of interest: \code{att} (average treatment effect on treated units), 
-\code{atc} (average treatment effect on control units), \code{ate} (average treatment effect). 
+\item{qoi}{quantity of interest, provided as a string: \code{att} (average treatment effect on treated units), \code{atc} (average treatment effect of treatment on the control units) \code{art} (average effect of treatment reversal for units that experience treatment reversal), or \code{ate} (average treatment effect). 
 Note that the qoi for MSM methods will give the estimated average treatment effect of being treated for a chosen \code{lead} 
 time periods. This differs slightly from the non-MSM methods, where treatment reversal is permitted.}
 
@@ -74,13 +88,15 @@ or if a diagonal matrix with only covariate variances should be used instead.
 In many cases, setting this to TRUE can lead to better covariate balance, especially when there is 
 high correlation between variables. Default is FALSE. This argument is only necessary when 
 \code{refinement.method = mahalanobis} and will have no impact otherwise.}
+
+\item{placebo.test}{logical TRUE/FALSE. indicates whether or not you want to be able to run a placebo test. This will add additional requirements on the data -- specifically, it requires that no unit included in the matching/refinement process can having missing outcome data over the lag window. Additionally, you should not use the outcome variable in refinement when \code{placebo.test = TRUE}.}
 }
 \value{
 \code{PanelMatch} returns an object of class "PanelMatch". This is a list that contains a few specific elements: 
-First, a \code{matched.set} object(s) that has the same name as the provided qoi if the qoi is "att" or "atc". 
+First, a \code{matched.set} object(s) that has the same name as the provided qoi if the qoi is "att", "art", or "atc". 
 If qoi = "ate" then two \code{matched.set} objects will be attached, named "att" and "atc." Please consult the documentation for
-\code{matched_set} to read more about the structure and usage of \code{matched.set} objects. Also, see the wiki page for 
-more information about these objects: \url{https://github.com/insongkim/PanelMatch/wiki/Matched-Set-Objects}.
+\code{matched_set} to read more about the structure and usage of \code{matched.set} objects. Also, see the vignette page about matched.set objects for 
+more information about these objects: \code{vignette("matched_set_objects", package = "PanelMatch")}.
 The \code{PanelMatch} object also has some additional attributes:
 \item{qoi}{The qoi specified in the original function call}
 \item{lead}{the lead window specified in the original function call}
@@ -116,33 +132,13 @@ PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
                          covs.formula = ~ tradewb, 
                          size.match = 5, qoi = "att",
                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-# Running multiple configurations at once
-list.of.results = PanelMatch(lag = list(4,3), 
-                                 time.id = list("year", "year"),
-                                 unit.id = list("wbcode2", "wbcode2"),
-                                 treatment = list("dem", "dem"),
-                                 refinement.method = list("mahalanobis", "ps.weight"),
-                                 data = dem,
-                                 match.missing = list(TRUE, TRUE),
-                                 covs.formula = list(~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)), 
-                                 ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4))),
-                                 size.match = list(5,5),
-                                 qoi = list("att", "att"),
-                                 outcome.var = list("y", "y"),
-                                 lead = list(0:4, 0:3),
-                                 forbid.treatment.reversal = list(FALSE, FALSE),
-                                 verbose = list(FALSE, FALSE),
-                                 listwise.delete = list(FALSE,FALSE),
-                                 use.diagonal.variance.matrix = list(TRUE, NULL),
-                                 exact.match.variables = list(NULL, NULL),
-                                 matching = list(TRUE, TRUE))
 
 
 }
 \references{
-Imai, Kosuke, In Song Kim, and Erik Wang (2018)
+Imai, Kosuke, In Song Kim, and Erik Wang (2021)
 }
 \author{
-Adam Rauh <adamrauh@mit.edu>, In Song Kim <insong@mit.edu>, Erik Wang
+Adam Rauh <amrauh@umich.edu>, In Song Kim <insong@mit.edu>, Erik Wang
 <haixiao@Princeton.edu>, and Kosuke Imai <imai@harvard.edu>
 }

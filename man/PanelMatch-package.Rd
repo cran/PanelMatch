@@ -8,7 +8,7 @@
 Implements a set of methodological tools
 that enable researchers to apply matching methods to
 time-series cross-sectional data. Imai, Kim, and Wang
-(2018) proposes a nonparametric generalization of the
+(2021) proposes a nonparametric generalization of the
 difference-in-differences estimator, which does not rely
 on the linearity assumption as often done in
 practice. Researchers first select a method of matching
@@ -25,15 +25,15 @@ technique that allows researchers to assess the quality
 of matches by examining the resulting covariate balance.
 }
 \details{
-\tabular{ll}{ Package: \tab PanelMatch\cr Type: \tab Package\cr Version: \tab 0.0.1-\cr
-Date: \tab 2018-03-01\cr License: \tab GPL (>= 3)\cr }
+\tabular{ll}{ Package: \tab PanelMatch\cr Type: \tab Package\cr Version: \tab 2.0.0-\cr
+Date: \tab 2021-09-02\cr License: \tab GPL (>= 3)\cr }
 }
 \references{
-Imai, Kosuke, In Song Kim and Erik Wang. (2018)
+Imai, Kosuke, In Song Kim and Erik Wang. (2021)
 }
 \author{
 In Song Kim <insong@mit.edu>, Erik Wang
-<haixiao@Princeton.edu>, Adam Rauh <adamrauh@mit.edu>, and Kosuke Imai <imai@harvard.edu>
+<haixiao@Princeton.edu>, Adam Rauh <amrauh@umich.edu>, and Kosuke Imai <imai@harvard.edu>
 
 Maintainer: In Song Kim \email{insong@mit.edu}
 }
