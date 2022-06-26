@@ -234,7 +234,7 @@ handle_calipers <- function(plain.ordered.data, caliper.formula,
   
   internal.caliper <- function(x, n = 1L, default = NA)
   {
-    if (class(x) == "factor")
+    if ( inherits(x, "factor"))
     {
       x <- as.numeric(as.character(x))
     }
@@ -385,7 +385,7 @@ handle_perlag_caliper_calculations <- function(nested.list, msets, caliper.metho
     # tmat <- tmat[, 1:(ncol(tmat)-1), drop = FALSE]
     meets_caliper <- function(col, cal, cal.method, sd.vals, IS_FACTOR)
     {
-      # browser()
+      
       # print(cal)
       if (IS_FACTOR)
       {

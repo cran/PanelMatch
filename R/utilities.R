@@ -1,6 +1,7 @@
 check_time_data <- function(data, time.id)
 {
-  if(class(data[, time.id]) != "integer") stop("time data is not integer")
+  #if(class(data[, time.id]) != "integer") stop("time data is not integer")
+  if (!inherits(data[, time.id], "integer")) stop("time data is not integer")
   u.times <- unique(data[, time.id])
   increase.by.one <- all(seq(min(u.times), max(u.times), by = 1) %in% u.times)
   if(increase.by.one)
@@ -70,13 +71,19 @@ get_covariate_balance <- function(matched.sets,
   {
     stop("Some of the specified covariates are not columns in the data set.")
   }
-  if(!any(class(matched.sets) %in% "matched.set")) stop("Please pass a matched.set object")
+  
+  #if(!any(class(matched.sets) %in% "matched.set")) stop("Please pass a matched.set object")
+  if (!inherits(matched.sets, "matched.set")) stop("Please pass a matched.set object")
   unit.id <- attr(matched.sets, "id.var")
   time.id <- attr(matched.sets, "t.var")
   lag <- attr(matched.sets, "lag")
   treatment <- attr(matched.sets, "treatment.var")
-  if (!class(data[, unit.id]) %in% c("integer", "numeric")) stop("please convert unit id column to integer or numeric")
-  if (class(data[, time.id]) != "integer") stop("please convert time id to consecutive integers")
+  
+  #if (!class(data[, unit.id]) %in% c("integer", "numeric")) stop("please convert unit id column to integer or numeric")
+  if (!inherits(data[, unit.id], "integer") && !inherits(data[, unit.id], "numeric")) stop("please convert unit id column to integer or numeric")
+  
+  #if (class(data[, time.id]) != "integer") stop("please convert time id to consecutive integers")
+  if (!inherits(data[, time.id], "integer")) stop("please convert time id to consecutive integers")
   
   if(any(table(data[, unit.id]) != max(table(data[, unit.id]))))
   {
@@ -182,8 +189,9 @@ get_covariate_balance <- function(matched.sets,
     plotpoints[[k]] <- var.points
     
   }
+  
   names(plotpoints) <- paste0("t_", lag:0)
-  pointmatrix <- apply((as.matrix(do.call(rbind, plotpoints))), 2, function(x){(as.numeric(x))})
+  pointmatrix <- apply((as.matrix(do.call(rbind, plotpoints))), 2, function(x){(as.numeric(x))}, simplify = TRUE)
   rownames(pointmatrix) <- names(plotpoints)
   
   remove.vars.idx <- apply(apply(pointmatrix, 2, is.nan), 2, any)
@@ -198,7 +206,7 @@ get_covariate_balance <- function(matched.sets,
   
   # we can remove time of treatment, since we expect a change
   
-  #pointmatrix <- pointmatrix[-nrow(pointmatrix),]
+  pointmatrix <- pointmatrix[-nrow(pointmatrix), ,drop = FALSE]
   
   if (!plot) return(pointmatrix)
   
@@ -208,7 +216,7 @@ get_covariate_balance <- function(matched.sets,
     treated.included <- treatment %in% colnames(pointmatrix)
     if (!continuous.treatment)
     {
-      #browser()
+      
       
       if (treated.included)
       {
@@ -274,14 +282,13 @@ get_covariate_balance <- function(matched.sets,
 #' the x-axis refers to balance for covariates before refinement, and y-axis
 #' refers to balance after refinement. Users can utilize parameters powered by \code{plot}
 #' in base R to further customize the figure.
-#' @param non_refined_set a \code{matched.set} object produced by setting `refinement.method` to "none" in `PanelMatch`
-#' @param refined_list a list of one or two \code{matched.set} objects
+#' @param matched_set_list a list of one or more \code{matched.set} objects
 #' @param xlim xlim of the scatter plot. This is the same as the \code{xlim} argument in \code{plot}
 #' @param ylim ylim of the scatter plot. This is the same as the \code{ylim} argument in \code{plot}
 #' @param main title of the scatter plot. This is the same as the \code{main} argument in \code{plot}
 #' @param x.axis.label x axis label
 #' @param y.axis.label y axis label
-#' @param pchs one or two pch indicators for the symbols on the scatter plot. See \code{plot} for more information
+#' @param pchs one or more pch indicators for the symbols on the scatter plot. You should specify a phc symbol for each matched.set you specify in matched_set_list. See \code{plot} for more information
 #' @param covariates variables for which balance is displayed
 #' @param data the same time series cross sectional data set used to create the matched sets.
 #' @param ... optional arguments to be passed to \code{plot}
@@ -320,7 +327,7 @@ get_covariate_balance <- function(matched.sets,
 #'
 #' # use the function to produce the scatter plot
 #' balance_scatter(non_refined_set = sets0$att,
-#'               refined_list = list(sets1$att, sets2$att),
+#'               matched_set_list = list(sets1$att, sets2$att),
 #'               data = dem,
 #'               covariates = c("y", "tradewb"))
 #' # add legend
@@ -336,7 +343,7 @@ get_covariate_balance <- function(matched.sets,
 #'
 #'
 #' @export
-balance_scatter <- function(non_refined_set, refined_list,
+balance_scatter <- function(matched_set_list,
                             xlim = c(0, .8),
                             ylim = c(0, .8),
                             main = "Standardized Mean Difference of Covariates",
@@ -345,26 +352,28 @@ balance_scatter <- function(non_refined_set, refined_list,
                             x.axis.label = "Before refinement",
                             y.axis.label = "After refinement",
                             ...) {
+  if (length(matched_set_list) < 1) stop("Please provide at least one matched.set object")
   # first, get balance for non-refined set
-  non_refined_balance <- get_covariate_balance(matched.sets = non_refined_set,
+  # use first matched set and generate unrefined balance using get_covariate_balance
+  non_refined_balance <- get_covariate_balance(matched.sets = matched_set_list[[1]],
                                                data = data,
-                                               covariates = covariates)
+                                               covariates = covariates,
+                                               use.equal.weights = TRUE)
   
   # second, get balance for refined sets
   refined_balance <- list()
-  for (i in 1:length(refined_list)) {
+  for (i in 1:length(matched_set_list)) {
     refined_balance[[i]] <-
-      get_covariate_balance(matched.sets = refined_list[[i]],
+      get_covariate_balance(matched.sets = matched_set_list[[i]],
                             data = data,
                             covariates = covariates)
   }
   
   # extract values for x-axis from the non-refined sets
-  benchmark <- non_refined_balance
-  benchmark <- as.vector(benchmark[1:(nrow(benchmark)-1),]) # delete balance results after t-1
+  benchmark <- as.vector(non_refined_balance)
   
-  # extract values for y-axis from refined sets and delete balance results after t-1
-  compared <- sapply(refined_balance, function(x) x <- x[1:(nrow(x)-1),])
+  
+  compared <- sapply(refined_balance, function(x) x <- x[1:(nrow(x)),])
   
   graphics::plot(abs(as.numeric(benchmark)),
                  abs(as.numeric(compared[,1])), pch = 1,
@@ -426,7 +435,8 @@ calculate_set_effects <- function(pm.obj, data.in, lead)
                               lead.val,
                               mset.name,
                               outcome, 
-                              use.abs.value = FALSE)
+                              use.abs.value = FALSE,
+                              is.atc = FALSE)
   {
     
     if ( identical(length(mset), 0L)) return(NA)
@@ -444,17 +454,24 @@ calculate_set_effects <- function(pm.obj, data.in, lead)
     
     treat.diff <- data_in[t.future.lookup, outcome] - data_in[t.past.lookup, outcome]
     
-    ind.effects <- treat.diff - sum(attr(mset, "weights") * control.diffs)
+    if (is.atc)
+    {
+      ind.effects <- sum(attr(mset, "weights") * control.diffs) - treat.diff
+    } else {
+      ind.effects <- treat.diff - sum(attr(mset, "weights") * control.diffs)
+    }
+    
+    
     denom <- attr(mset, "treatment.change")
     if (use.abs.value) denom <- abs(denom)
+    if (is.atc) denom <- 1
     ind.effects <- ind.effects / denom
     return(ind.effects)
     
   }
   
   
-  if ( identical(attributes(pm.obj)[["qoi"]], "att") || 
-       identical(attributes(pm.obj)[["qoi"]], "atc") )
+  if ( identical(attributes(pm.obj)[["qoi"]], "att"))
   { #using simplify = TRUE because we should always expect a vector, so nothing unexpected should happen
     effects <- mapply(FUN = get_ind_effects,
                       mset = msets,
@@ -462,6 +479,18 @@ calculate_set_effects <- function(pm.obj, data.in, lead)
                       MoreArgs = list(lead.val = lead,
                                       data_in = data.in,
                                       outcome = attributes(pm.obj)[["outcome.var"]]),
+                      SIMPLIFY = TRUE)
+    
+    return(effects)
+  } else if (identical(attributes(pm.obj)[["qoi"]], "atc"))
+  {
+    effects <- mapply(FUN = get_ind_effects,
+                      mset = msets,
+                      mset.name = names(msets),
+                      MoreArgs = list(lead.val = lead,
+                                      data_in = data.in,
+                                      outcome = attributes(pm.obj)[["outcome.var"]],
+                                      is.atc = TRUE),
                       SIMPLIFY = TRUE)
     
     return(effects)
@@ -510,14 +539,14 @@ calculate_set_effects <- function(pm.obj, data.in, lead)
 
 
 
-#' getSetTreatmentEffects
+#' get_set_treatment_effects
 #'
 #' Calculates the treatment effect size at the matched set level
 #'
 #'
 #' Calculate the size of treatment effects for each matched set.
 #' @param pm.obj an object of class \code{PanelMatch}
-#' @param data.in data.frame with the original data
+#' @param data data.frame with the original data
 #' @param lead integer (or integer vector) indicating the time period(s) in the future for which the treatment effect size will be calculated. Calculations will be made for the period t + lead, where t is the time of treatment. If more than one lead value is provided, then calculations will be performed for each value.
 #'
 #' @examples
@@ -529,26 +558,26 @@ calculate_set_effects <- function(pm.obj, data.in, lead)
 #'                          size.match = 5, qoi = "att",
 #'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
 #'                          placebo.test = FALSE)
-#' set.effects <- getSetTreatmentEffects(pm.obj = PM.results, data.in = dem, lead = 0)
+#' set.effects <- get_set_treatment_effects(pm.obj = PM.results, data = dem, lead = 0)
 #'
 #'
 #' @export
 
-getSetTreatmentEffects <- function(pm.obj, data.in, lead)
+get_set_treatment_effects <- function(pm.obj, data, lead)
 {
-  return(lapply(lead, calculate_set_effects, pm.obj = pm.obj, data.in = data.in))
+  return(lapply(lead, calculate_set_effects, pm.obj = pm.obj, data.in = data))
 
 }
 #' 
 #' 
-#' placeboTest
+#' placebo_test
 #'
 #' Calculates results for a placebo test
 #'
 #'
 #' Calculate the results of a placebo test, looking at the change in outcome at time = t-1, compared to other pre-treatment periods in the lag window.
 #' @param pm.obj an object of class \code{PanelMatch}
-#' @param data.in data.frame with the original data
+#' @param data data.frame with the original data
 #' @param lag.in integer indicating earliest the time period(s) in the future for which the placebo test change in outcome will be calculated. Calculations will be made over the period t - max(lag) to t-2, where t is the time of treatment. The results are similar to those returned by PanelEstimate, except t-1 is used as the period of comparison, rather than the lead window.
 #' @param number.iterations integer specifying the number of bootstrap iterations
 #' @param confidence.level confidence level for the calculated standard error intervals
@@ -565,14 +594,14 @@ getSetTreatmentEffects <- function(pm.obj, data.in, lead)
 #'                          size.match = 5, qoi = "att",
 #'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
 #'                          placebo.test = TRUE)
-#' placeboTest(PM.results, data.in = dem, number.iterations = 100, plot = FALSE)
+#' placebo_test(PM.results, data = dem, number.iterations = 100, plot = FALSE)
 #' 
 #' 
 #' @export
 #'
 #'
-placeboTest <- function(pm.obj,
-                        data.in,
+placebo_test <- function(pm.obj,
+                        data,
                         lag.in = NULL,
                         number.iterations = 1000,
                         confidence.level = .95,
@@ -608,7 +637,7 @@ placeboTest <- function(pm.obj,
 
 
   placebo.results.raw <- panel_estimate(sets = pm.obj,
-                                        data = data.in,
+                                        data = data,
                                         number.iterations = number.iterations,
                                         df.adjustment = df.adjustment,
                                         placebo.test = TRUE,

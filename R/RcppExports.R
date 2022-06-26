@@ -33,8 +33,8 @@ get_treated_indices <- function(ordered_df, treated_indices, treat_col_idx, unit
     .Call('_PanelMatch_get_treated_indices', PACKAGE = 'PanelMatch', ordered_df, treated_indices, treat_col_idx, unit_var_col)
 }
 
-get_comparison_histories <- function(compmat, ts, ids, t_col, id_col, L, treat_col) {
-    .Call('_PanelMatch_get_comparison_histories', PACKAGE = 'PanelMatch', compmat, ts, ids, t_col, id_col, L, treat_col)
+get_comparison_histories <- function(compmat, ts, ids, t_col, id_col, L, treat_col, atc) {
+    .Call('_PanelMatch_get_comparison_histories', PACKAGE = 'PanelMatch', compmat, ts, ids, t_col, id_col, L, treat_col, atc)
 }
 
 get_msets_helper <- function(control_history_list, widemat, t_as_col_nums, ids, L) {
@@ -43,6 +43,10 @@ get_msets_helper <- function(control_history_list, widemat, t_as_col_nums, ids, 
 
 non_matching_matcher <- function(control_history_list, widemat, t_as_col_nums, ids, L, missing_window) {
     .Call('_PanelMatch_non_matching_matcher', PACKAGE = 'PanelMatch', control_history_list, widemat, t_as_col_nums, ids, L, missing_window)
+}
+
+filter_placebo_results <- function(expanded_data, ordered_outcome_data, treated_ids, treated_ts, sets, lag) {
+    .Call('_PanelMatch_filter_placebo_results', PACKAGE = 'PanelMatch', expanded_data, ordered_outcome_data, treated_ids, treated_ts, sets, lag)
 }
 
 get_yearly_dmats <- function(expanded_data, treated_ids, ts_to_fetch, matched_sets, lag) {
@@ -71,5 +75,9 @@ check_missing_data_treated_units <- function(subset_data, sets, tid_pairs, treat
 
 check_missing_data_control_units <- function(subset_data, sets, prepared_sets, tid_pairs, lead) {
     .Call('_PanelMatch_check_missing_data_control_units', PACKAGE = 'PanelMatch', subset_data, sets, prepared_sets, tid_pairs, lead)
+}
+
+enforce_strict_histories <- function(control_histories, strict_period) {
+    .Call('_PanelMatch_enforce_strict_histories', PACKAGE = 'PanelMatch', control_histories, strict_period)
 }
 

@@ -16,14 +16,14 @@ DisplayTreatment(unit.id = "wbcode2",
                  time.id = "year", legend.position = "none",
                  xlab = "year", ylab = "Country Code",
                  treatment = "dem", data = dem,
-                 hide.x.axis.label = TRUE, hide.y.axis.label = TRUE) # axis label options
+                 hide.x.tick.label = TRUE, hide.y.tick.label = TRUE) # axis label options
 
 ## -----------------------------------------------------------------------------
 DisplayTreatment(unit.id = "wbcode2",
                  time.id = "year", legend.position = "none",
                  xlab = "year", ylab = "Country Code",
                  treatment = "dem", data = dem,
-                 hide.x.axis.label = TRUE, hide.y.axis.label = TRUE,
+                 hide.x.tick.label = TRUE, hide.y.tick.label = TRUE,
                  dense.plot = TRUE) # setting dense.plot to TRUE
 
 ## -----------------------------------------------------------------------------
@@ -165,8 +165,9 @@ get_covariate_balance(PM.results.ps.weight$att,
                       ylim = c(-1, 1))
 
 ## -----------------------------------------------------------------------------
-balance_scatter(non_refined_set = PM.results.none$att,
-               refined_list = list(PM.results.maha$att, PM.results.ps.weight$att),
+balance_scatter(matched_set_list =
+                  list(PM.results.maha$att,
+                       PM.results.ps.weight$att),
                data = dem,
                covariates = c("y", "tradewb"))
 

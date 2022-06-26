@@ -23,6 +23,8 @@
 #' @param confidence.level A numerical value specifying the confidence level and range of interval
 #' estimates for statistical inference. The default is .95.
 #' @param moderator The name of a moderating variable, provided as a character string. If a moderating variable is provided,the returned object will be a list of \code{PanelEstimate} objects. The names of the list will reflect the different values of the moderating variable. More specifically, the moderating variable values will be converted to syntactically proper names using \code{make.names}.
+#' @param pooled Logical. If TRUE, estimates and standard errors are returned for treatment effects pooled across the entire lead window. Only available for \code{se.method = ``bootstrap''}
+#' 
 #' @return \code{PanelEstimate} returns a list of class
 #' `PanelEstimate' containing the following components:
 #' \item{estimates}{the point estimates of the quantity of interest for the lead periods specified}
@@ -58,15 +60,20 @@ PanelEstimate <- function(sets, data,
                           df.adjustment = FALSE,
                           confidence.level = .95,
                           moderator = NULL,
-                          se.method = "bootstrap")
+                          se.method = "bootstrap",
+                          pooled = FALSE)
 {
   #se.method <- "bootstrap"
-  
+  if (pooled && !identical(se.method, "bootstrap"))
+  {
+    se.method = "bootstrap"
+    warning("Pooled results only available with bootstrap SEs")
+  }
   if (se.method == "wfe") stop("wfe is no longer supported. Please specify se.method = 'bootstrap', 'conditional', or 'unconditional'")
-  if (class(number.iterations) == "list" & 
-      class(df.adjustment) == "list" &
-      class(confidence.level) == "list" & 
-      class(sets) == "list")
+  if (inherits(number.iterations, "list") & 
+      inherits(df.adjustment, "list") &
+      inherits(confidence.level, "list")& 
+      inherits(sets, "list") == "list")
   {
     if (length(unique(length(se.method), length(number.iterations), length(df.adjustment),
                       length(confidence.level), length(sets))) == 1)
@@ -112,7 +119,8 @@ PanelEstimate <- function(sets, data,
                         number.iterations = number.iterations.in,
                         df.adjustment = df.adjustment.in, 
                         confidence.level = confidence.level.in, 
-                        data = data)
+                        data = data,
+                        pooled = pooled)
           return(res)
         }
         res <- mapply(FUN = handle.nesting, 
@@ -122,7 +130,8 @@ PanelEstimate <- function(sets, data,
                       sets.in = sets,
                       MoreArgs = list(data = data, 
                                       se.method = se.method, 
-                                      moderating.variable.in = moderator),
+                                      moderating.variable.in = moderator,
+                                      pooled = pooled),
                       SIMPLIFY = FALSE)
       }
       else
@@ -133,7 +142,8 @@ PanelEstimate <- function(sets, data,
                      confidence.level = confidence.level, 
                      sets = sets,
                      MoreArgs = list(data = data, 
-                                     se.method = se.method),
+                                     se.method = se.method,
+                                     pooled = pooled),
                      SIMPLIFY = FALSE)
       }
       
@@ -164,15 +174,31 @@ PanelEstimate <- function(sets, data,
         # sets[["atc"]]
         unit.id <- attr(s1, "id.var")
         time.id <- attr(s1, "t.var")
+      } 
+      if (attr(sets, "qoi") == "art")
+      {
+        s1 <- sets[["art"]]
+        unit.id <- attr(s1, "id.var")
+        time.id <- attr(s1, "t.var")
       }
       
+      if ((attr(sets, "qoi") == "art") || 
+          (attr(sets, "qoi") == "att"))
+      {
+        att.sets.in <- s1
+      } else {
+        att.sets.in <- NULL
+      }
+      #this might be wrong...
       ordered.data <- data[order(data[,unit.id], data[,time.id]), ]
       set.list <- handle_moderating_variable(ordered.data = ordered.data,
-                                             att.sets = sets[["att"]],
+                                             att.sets = att.sets.in,
                                              atc.sets = sets[["atc"]],
                                              moderator = moderator,
-                                             unit.id = unit.id, time.id = time.id,
-                                             PM.object = sets)
+                                             unit.id = unit.id, 
+                                             time.id = time.id,
+                                             PM.object = sets, 
+                                             qoi.in = attr(sets, "qoi"))
       
       
       res <- lapply(set.list, 
@@ -181,7 +207,8 @@ PanelEstimate <- function(sets, data,
                     number.iterations = number.iterations,
                     df.adjustment = df.adjustment, 
                     confidence.level = confidence.level, 
-                    data = data)
+                    data = data,
+                    pooled = pooled)
       
     }
     else
@@ -191,7 +218,8 @@ PanelEstimate <- function(sets, data,
                            df.adjustment = df.adjustment, 
                            confidence.level = confidence.level, 
                            sets = sets, 
-                           data = data)
+                           data = data,
+                           pooled = pooled)
     }
     
   }
@@ -206,15 +234,15 @@ panel_estimate <- function(sets,
                            df.adjustment = FALSE,
                            confidence.level = .95,
                            placebo.test = FALSE,
-                           placebo.lead = NULL
-)
+                           placebo.lead = NULL,
+                           pooled = FALSE)
 {
   
   lead <- attr(sets, "lead")
   outcome.variable <- attr(sets, "outcome.var")
   continuous.treatment <- attr(sets,'continuous.treatment')
   if (is.null(continuous.treatment)) continuous.treatment <- FALSE
-  if (class(sets) != "PanelMatch") stop("sets parameter is not a PanelMatch object")
+  if (!inherits(sets, "PanelMatch")) stop("sets parameter is not a PanelMatch object")
   qoi <- attr(sets, "qoi")
   
   
@@ -249,10 +277,14 @@ panel_estimate <- function(sets,
   #forbid.treatment.reversal <- attr(t.sets, "forbid.treatment.reversal")
   #add in checks about forbid.treatment.reversal and wfe, etc.
   
-  if (!"data.frame" %in% class(data)) stop("please convert data to data.frame class")
+  if (!inherits(data, "data.frame")) stop("please convert data to data.frame class")
+  #if (!"data.frame" %in% class(data)) stop("please convert data to data.frame class")
   
-  if (!class(data[, unit.id]) %in% c("integer", "numeric")) stop("please convert unit id column to integer or numeric")
-  if (class(data[, time.id]) != "integer") stop("please convert time id to consecutive integers")
+  #if (!class(data[, unit.id]) %in% c("integer", "numeric")) stop("please convert unit id column to integer or numeric")
+  if (!inherits(data[, unit.id], "integer") && !inherits(data[, unit.id], "numeric")) stop("please convert unit id column to integer or numeric")
+  
+  #if (class(data[, time.id]) != "integer") stop("please convert time id to consecutive integers")
+  if (!inherits(data[, time.id], "integer")) stop("please convert time id to consecutive integers")
   
   if (any(table(data[, unit.id]) != max(table(data[, unit.id]))))
   {
@@ -264,7 +296,7 @@ panel_estimate <- function(sets,
                           variable.factor = FALSE, value.name = treatment)
     d <- data.frame(d)[,c(1,2)]
     class(d[, 2]) <- "integer"
-    data <- merge(data.table(d), data.table(data), all.x = TRUE, by = c(unit.id, time.id))
+    data <- merge(data.table::data.table(d), data.table::data.table(data), all.x = TRUE, by = c(unit.id, time.id))
     data <- as.data.frame(data)
     
   }
@@ -349,7 +381,11 @@ panel_estimate <- function(sets,
                                      att.sets = sets.att,
                                      atc.sets = sets.atc,
                                      lag = lag.in,
-                                     se.method = se.method)
+                                     se.method = se.method,
+                                     pooled = pooled)
+
+   
+    
   }
   return(pe.results)
   

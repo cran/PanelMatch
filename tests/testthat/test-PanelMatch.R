@@ -23,9 +23,24 @@ test_that("ATC (no refinement) runs", {
   expect_equal(class(PM.object), "PanelMatch")
   expect_equal(class(PM.object$atc), "matched.set")
   expect_equal(length(PM.object), 1)
-  expect_equal(length(PM.object$atc), 55)
+  expect_equal(length(PM.object$atc), 3287)
   expect_equal(names(PM.object)[1], "atc")
 })
+
+test_that("ART (no refinement) runs", {
+  PM.object <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
+                          treatment = "dem", refinement.method = "none",
+                          data = dem, match.missing = FALSE,
+                          size.match = 5, qoi = "art",
+                          outcome.var = "y",
+                          lead = 0:4, forbid.treatment.reversal = FALSE)
+  expect_equal(class(PM.object), "PanelMatch")
+  expect_equal(class(PM.object$art), "matched.set")
+  expect_equal(length(PM.object), 1)
+  expect_equal(length(PM.object$art), 55)
+  expect_equal(names(PM.object)[1], "art")
+})
+
 
 
 test_that("ATE (no refinement) runs", {
@@ -40,9 +55,9 @@ test_that("ATE (no refinement) runs", {
   expect_equal(class(PM.object$atc), "matched.set")
   expect_equal(length(PM.object), 2)
   expect_equal(length(PM.object$att), 105)
-  expect_equal(length(PM.object$atc), 55)
+  expect_equal(length(PM.object$atc), 3287)
   expect_equal(names(PM.object)[1], "att")
-  expect_equal(names(PM.object)[1], "att")
+  expect_equal(names(PM.object)[2], "atc")
 })
 
 
@@ -111,19 +126,19 @@ test_that("edge case matching checks", {
   expect_equal(class(PM.object$atc), "matched.set")
   set.seed(1)
   pe.results <- PanelEstimate(PM.object, data = dem, se.method = "bootstrap")
-  expect_equivalent(pe.results$estimates, 4.22192232677815, tolerance = .000001)
+  expect_equivalent(pe.results$estimates, -0.5462476, tolerance = .000001)
   expect_identical(pe.results$se.method, "bootstrap")
-  expect_equivalent(pe.results$standard.error, 1.11077012122371, tolerance = .000001)
+  expect_equivalent(pe.results$standard.error, 0.6548047, tolerance = .000001)
   
   pe.results <- PanelEstimate(PM.object, data = dem, se.method = "conditional")
-  expect_equivalent(pe.results$estimates, 4.22192232677815, tolerance = .000001)
+  expect_equivalent(pe.results$estimates,-0.5462476, tolerance = .000001)
   expect_identical(pe.results$se.method, "conditional")
-  expect_equivalent(pe.results$standard.error, 0.90258389202935, tolerance = .000001)
+  expect_equivalent(pe.results$standard.error, 0.5466142, tolerance = .000001)
   
   pe.results <- PanelEstimate(PM.object, data = dem, se.method = "unconditional")
-  expect_equivalent(pe.results$estimates, 4.22192232677815, tolerance = .000001)
+  expect_equivalent(pe.results$estimates, -0.5462476, tolerance = .000001)
   expect_identical(pe.results$se.method, "unconditional")
-  expect_equivalent(pe.results$standard.error, 1.21738691542365, tolerance = .000001)
+  expect_equivalent(pe.results$standard.error, 0.6513834, tolerance = .000001)
   
   #ate
   PM.object <- PanelMatch(lag = 1, time.id = "year", unit.id = "wbcode2",
@@ -137,11 +152,11 @@ test_that("edge case matching checks", {
   expect_equal(class(PM.object$atc), "matched.set")
   set.seed(1)
   pe.results <- PanelEstimate(PM.object, data = dem, se.method = "bootstrap")
-  expect_equivalent(pe.results$estimates, 0.766157910045996, tolerance = .000001)
+  expect_equivalent(pe.results$estimates, -0.5728, tolerance = .000001)
   expect_identical(pe.results$se.method, "bootstrap")
-  expect_equivalent(pe.results$standard.error, 0.605100986438279, tolerance = .000001)
-  
-  
+  expect_equivalent(pe.results$standard.error, 0.6513728, tolerance = .000001)
+  expect_error(PanelEstimate(PM.object, data = dem, se.method = "conditional"))
+  expect_error(PanelEstimate(PM.object, data = dem, se.method = "unconditional"))
   
 })
 
@@ -238,7 +253,7 @@ test_that("ATC: refinement method (excluding MSM) does not affect unrefined matc
                     outcome.var = "y",
                     lead = 0:4, forbid.treatment.reversal = FALSE)
 
-  expect_equal(length(pm1$atc), 55)
+  expect_equal(length(pm1$atc), 3287)
   expect_equivalent(pm1$atc, pm2$atc)
   expect_equivalent(pm2$atc, pm3$atc)
   expect_equivalent(pm3$atc, pm4$atc)
@@ -284,11 +299,11 @@ test_that("balance checking functions are sensible", {
   balmat <- get_covariate_balance(pm.obj$att, dem, covariates = c("tradewb", "rdata"), 
                             plot = FALSE, ylim = c(-2,2))
   compmat <- matrix(data = c(0.0601621099966881,-0.00601042376056592,
-                             0.00212772294115459,0.104946475743932,0.133482367739366,
+                             0.00212772294115459,0.104946475743932,
                              0.0252020903167403,0.051861118295163,-0.125475177405918,
-                             0.0268787670968836,-0.0117184403355875)
-                    , ncol = 2, nrow = 5)
-  expect_equal(nrow(balmat), 5)
+                             0.0268787670968836), 
+                    ncol = 2, nrow = 4)
+  expect_equal(nrow(balmat), 4)
   expect_equal(ncol(balmat), 2)
   expect_equivalent(balmat, compmat)
   
@@ -328,8 +343,8 @@ test_that("(ATC) PanelEstimate Runs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem)
-  comp.results <-  c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353)
-  expect_equivalent(pe.results$estimates, comp.results)
+  comp.results <-  c(-0.7399887, -0.1418777, -0.4914594, -0.1423150)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .000001)
   
 })
 
@@ -359,8 +374,8 @@ test_that("(ATE) PanelEstimate Runs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem)
-  comp.results <-  c(1.40908029917124,2.55357045354071,3.31650068953231,3.93452991794896)
-  expect_equivalent(pe.results$estimates, comp.results)
+  comp.results <-  c(-0.73400424, -0.14920097, -0.45276678, -0.06580353)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .0000001)
   
 })
 
@@ -409,9 +424,9 @@ test_that("(ATC) bootstrap SEs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem)
-  comp.results <-  c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353)
-  expect_equivalent(pe.results$estimates, comp.results)
-  expect_equivalent(pe.results$standard.error, c(1.436841, 2.279820, 3.030895, 3.451612), tolerance = .0000001)
+  comp.results <-  c(-0.7399887, -0.1418777, -0.4914594, -0.1423150)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .0000001)
+  expect_equivalent(pe.results$standard.error, c(0.7073038, 1.3269013, 1.7366997, 2.2044836), tolerance = .0000001)
 })
 
 test_that("(ART) bootstrap SEs", {
@@ -442,10 +457,9 @@ test_that("(ATE) bootstrap SEs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem)
-  comp.results <-  c(1.40908029917124,2.55357045354071,3.31650068953231,3.93452991794896)
-  expect_equivalent(pe.results$estimates, comp.results)
-  expect_equivalent(pe.results$standard.error, c(0.767560957486421,1.17704405447648,
-                                                 1.50237292151594,1.76640885892815), tolerance = .0000001)
+  comp.results <-  c(-0.73400424, -0.14920097, -0.45276678, -0.06580353)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .000001)
+  expect_equivalent(pe.results$standard.error, c(0.7031095, 1.3111547, 1.7143549, 2.1707891), tolerance = .0000001)
 })
 
 
@@ -479,9 +493,9 @@ test_that("(ATC) PanelEstimate Runs: analytical SEs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem, se.method = "conditional")
-  comp.results <-  c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353)
-  expect_equivalent(pe.results$estimates, comp.results)
-  comp.results <- c(1.026000, 1.483106 ,1.919551 ,2.150267)
+  comp.results <-  c(-0.7399887, -0.1418777, -0.4914594, -0.1423150)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .000001)
+  comp.results <- c(0.5917567, 1.1136940, 1.4693785, 1.8571621)
   names(comp.results) <- paste0("t+", 0:3)
   expect_equal(pe.results$standard.error, comp.results, tolerance = .0000002)
   
@@ -535,9 +549,9 @@ test_that("(ATC) PanelEstimate Runs: unconditional analytical SEs", {
                     lead = 0:3, forbid.treatment.reversal = FALSE)
   
   pe.results <- PanelEstimate(pm1, data = dem, se.method = "unconditional")
-  comp.results <-  c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353)
-  expect_equivalent(pe.results$estimates, comp.results)
-  comp.results <- c(1.57127705575129,2.31146328482272,2.86362720065278,3.09207201707423)
+  comp.results <-  c(-0.7399887, -0.1418777, -0.4914594, -0.1423150)
+  expect_equivalent(pe.results$estimates, comp.results, tolerance = .000001)
+  comp.results <- c(0.7086883, 1.3301189, 1.7552049, 2.2180256)
   names(comp.results) <- paste0("t+", 0:3)
   expect_equivalent(pe.results$standard.error, comp.results, tolerance = .0000002)
   
@@ -606,7 +620,7 @@ test_that("summary.PanelEstimate (conditional)", {
   pe.results <- PanelEstimate(pm1, data = dem, se.method = "conditional")
   expect_output(summary(pe.results)) 
   expect_true(all(length(summary(pe.results)) == 3))
-  comp.vec <- c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353,1.02600037922772,1.48310644776257,1.91955116019568,2.15026718759732,3.20679507347894,5.11455041880524,4.99421762868267,3.90954847024455,7.22864265630046,10.9282208645128,12.5187199096139,12.3384409599025)
+  comp.vec <- c(-0.7399887237467,-0.141877691307886,-0.491459440095836,-0.142314999825745,0.591756652995951,1.11369402788093,1.46937851945315,1.85716210624063,-1.89981045123073,-2.32467787575185,-3.37138841788079,-3.78228584150992,0.419833003737329,2.04092249313608,2.38846953768912,3.49765584185843)
   cmat <- summary(pe.results, verbose = FALSE)
   attributes(cmat) <- NULL #just compare the numbers
   cmat <- unlist(cmat)
@@ -663,7 +677,7 @@ test_that("summary.PanelEstimate (unconditional)", {
   pe.results <- PanelEstimate(pm1, data = dem, se.method = "unconditional")
   expect_output(summary(pe.results)) 
   expect_true(all(length(summary(pe.results)) == 3))
-  comp.vec <- c(5.2177188648897,8.02138564165901,8.75646876914828,8.12399471507353,1.57127705575129,2.31146328482272,2.86362720065278,3.09207201707423,2.13807242588304,3.49100085181983,3.14386259071958,2.06364492400392,8.29736530389636,12.5517704314982,14.369074947577,14.1843445061431)
+  comp.vec <- c(-0.7399887237467,-0.141877691307886,-0.491459440095836,-0.142314999825745,0.708688258862262,1.33011893273585,1.75520486661622,2.21802563150778,-2.12899218738313,-2.74886289462501,-3.93159776415305,-4.4895653543677,0.649014739889732,2.46510751200924,2.94867888396138,4.20493535471621)
   cmat <- summary(pe.results, verbose = FALSE)
   attributes(cmat) <- NULL #just compare the numbers
   cmat <- unlist(cmat)
@@ -723,7 +737,7 @@ test_that("set level treatment effects", {
                            size.match = 5, qoi = "att",
                            outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
                            placebo.test = FALSE)
-  set.effects <- getSetTreatmentEffects(pm.obj = PM.results, data.in = dem, lead = 0:1)
+  set.effects <- get_set_treatment_effects(pm.obj = PM.results, data = dem, lead = 0:1)
   #mean(set.effects[[1]], na.rm = TRUE)
   #mean(set.effects[[2]], na.rm = TRUE)
   pe.results <- PanelEstimate(PM.results, data = dem)
@@ -739,7 +753,7 @@ test_that("set level treatment effects", {
                            size.match = 5, qoi = "art",
                            outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
                            placebo.test = FALSE)
-  set.effects <- getSetTreatmentEffects(pm.obj = PM.results, data.in = dem, lead = 0:1)
+  set.effects <- get_set_treatment_effects(pm.obj = PM.results, data = dem, lead = 0:1)
   #mean(set.effects[[1]], na.rm = TRUE)
   #mean(set.effects[[2]], na.rm = TRUE)
   pe.results <- PanelEstimate(PM.results, data = dem)
@@ -754,7 +768,7 @@ test_that("set level treatment effects", {
                            size.match = 5, qoi = "atc",
                            outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
                            placebo.test = FALSE)
-  set.effects <- getSetTreatmentEffects(pm.obj = PM.results, data.in = dem, lead = 0:1)
+  set.effects <- get_set_treatment_effects(pm.obj = PM.results, data = dem, lead = 0:1)
   #mean(set.effects[[1]], na.rm = TRUE)
   #mean(set.effects[[2]], na.rm = TRUE)
   pe.results <- PanelEstimate(PM.results, data = dem)
@@ -770,7 +784,7 @@ test_that("set level treatment effects", {
   #                          size.match = 5, qoi = "ate",
   #                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE,
   #                          placebo.test = FALSE)
-  # set.effects <- getSetTreatmentEffects(pm.obj = PM.results, data.in = dem, lead = 0:1)
+  # set.effects <- get_set_treatment_effects(pm.obj = PM.results, data = dem, lead = 0:1)
   # #mean(set.effects[[1]], na.rm = TRUE)
   # #mean(set.effects[[2]], na.rm = TRUE)
   # pe.results <- PanelEstimate(PM.results, data = dem)

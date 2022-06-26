@@ -2,8 +2,8 @@ Package: PanelMatch
 Type: Package
 Title: Matching Methods for Causal Inference with Time-Series
         Cross-Sectional Data
-Version: 2.0.0
-Date: 2021-09-02
+Version: 2.0.1
+Date: 2022-06-21
 Authors@R: c(
   person("In Song", "Kim", email = "insong@mit.edu", role = c("aut", "cre")),
   person("Adam", "Rauh", email = "amrauh@umich.edu", role = c("aut")),
@@ -38,15 +38,15 @@ LinkingTo: RcppArmadillo, Rcpp, RcppEigen
 Encoding: UTF-8
 LazyData: true
 BugReports: https://github.com/insongkim/PanelMatch/issues
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.2
 Suggests: knitr, rmarkdown, testthat (>= 2.1.0)
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2021-09-02 13:15:56 UTC; adamrauh
+Packaged: 2022-06-21 17:38:06 UTC; adamrauh
 Author: In Song Kim [aut, cre],
   Adam Rauh [aut],
   Erik Wang [aut],
   Kosuke Imai [aut]
 Maintainer: In Song Kim <insong@mit.edu>
 Repository: CRAN
-Date/Publication: 2021-09-02 20:30:02 UTC
+Date/Publication: 2022-06-26 21:30:07 UTC
