@@ -3,7 +3,7 @@
 #' Implements a set of methodological tools
 #' that enable researchers to apply matching methods to
 #' time-series cross-sectional data. Imai, Kim, and Wang
-#' (2021) proposes a nonparametric generalization of the
+#' (2023) proposes a nonparametric generalization of the
 #' difference-in-differences estimator, which does not rely
 #' on the linearity assumption as often done in
 #' practice. Researchers first select a method of matching
@@ -19,8 +19,6 @@
 #' technique that allows researchers to assess the quality 
 #' of matches by examining the resulting covariate balance.
 #'
-#' \tabular{ll}{ Package: \tab PanelMatch\cr Type: \tab Package\cr Version: \tab 2.0.0-\cr
-#' Date: \tab 2021-09-02\cr License: \tab GPL (>= 3)\cr }
 #'
 #' @name PanelMatch-package
 #' @useDynLib PanelMatch
@@ -30,9 +28,10 @@
 #' <haixiao@Princeton.edu>, Adam Rauh <amrauh@umich.edu>, and Kosuke Imai <imai@harvard.edu>
 #' 
 #' Maintainer: In Song Kim \email{insong@mit.edu}
-#' @references Imai, Kosuke, In Song Kim and Erik Wang. (2021)
-#' @keywords package
-#' @import ggplot2 stats MASS data.table
+#' @references Imai, Kosuke, In Song Kim and Erik Wang. (2023)
+#' @keywords internal
+"_PACKAGE"
+#' @import ggplot2 stats MASS data.table foreach
 #' @importFrom Rcpp sourceCpp
 #' @importFrom CBPS CBPS
 #' @importFrom utils capture.output
@@ -40,5 +39,3 @@
 #' @importFrom methods as
 #' @importFrom utils flush.console tail object.size
 NULL
-
-

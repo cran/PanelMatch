@@ -10,21 +10,30 @@
   xlab = "Time",
   main = "Estimated Effects of Treatment Over Time",
   ylim = NULL,
+  pch = NULL,
+  cex = NULL,
+  bias.corrected = FALSE,
   ...
 )
 }
 \arguments{
 \item{x}{a \code{PanelEstimate} object}
 
-\item{ylab}{default is "Estimated Effect of Treatment. This is the same argument as the standard argument for \code{plot}}
+\item{ylab}{default is "Estimated Effect of Treatment." This is the same argument as the standard argument for \code{plot()}}
 
-\item{xlab}{default is "Time". This is the same argument as the standard argument for \code{plot}}
+\item{xlab}{default is "Time". This is the same argument as the standard argument for \code{plot()}}
 
 \item{main}{default is "Estimated Effects of Treatment Over Time". This is the same argument as the standard argument for \code{plot}}
 
-\item{ylim}{default is NULL. This is the same argument as the standard argument for \code{plot}}
+\item{ylim}{default is NULL. This is the same argument as the standard argument for \code{plot()}}
 
-\item{...}{Additional optional arguments to be passed to \code{plot}.}
+\item{pch}{default is NULL. This is the same argument as the standard argument for \code{plot()}}
+
+\item{cex}{default is NULL. This is the same argument as the standard argument for \code{plot()}}
+
+\item{bias.corrected}{logical indicating whether or not bias corrected estimates should be plotted Default is FALSE. This argument only applies for standard errors calculated with the bootstrap.}
+
+\item{...}{Additional optional arguments to be passed to \code{plot()}.}
 }
 \description{
 The \code{plot.PanelEstimate} method takes an object returned by the \code{PanelEstimate} function and plots the calculated 
@@ -32,14 +41,15 @@ point estimates and standard errors over the specified \code{lead} time period.
 The only mandatory argument is an object of the \code{PanelEstimate} class.
 }
 \examples{
+dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+# create subset of data for simplicity
 PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
                          treatment = "dem", refinement.method = "mahalanobis", 
-                         data = dem, match.missing = TRUE, 
-                         covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
+                         data = dem.sub, match.missing = TRUE, 
+                         covs.formula = ~ tradewb,
                          size.match = 5, qoi = "att",
                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-PE.results <- PanelEstimate(sets = PM.results, data = dem)
+PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
 plot(PE.results)
-
 
 }

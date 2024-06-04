@@ -10,13 +10,15 @@
 #' @param bias.corrected logical indicating whether or not bias corrected estimates should be provided. Default is FALSE. This argument only applies for standard errors calculated with the bootstrap. 
 #' @param ... optional additional arguments. Currently, no additional arguments are supported. 
 #' @examples
+#' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' # create subset of data for simplicity
 #' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-#'                          treatment = "dem", refinement.method = "none", 
-#'                          data = dem, match.missing = TRUE, 
-#'                          covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
+#'                          treatment = "dem", refinement.method = "ps.weight", 
+#'                          data = dem.sub, match.missing = TRUE, 
+#'                          covs.formula = ~ tradewb,
 #'                          size.match = 5, qoi = "att",
 #'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-#' PE.results <- PanelEstimate(sets = PM.results, data = dem, number.iterations = 500)
+#' PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
 #' summary(PE.results)
 #' 
 #'
@@ -42,11 +44,13 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
     {
       cat("Weighted Difference-in-Differences with Mahalanobis Distance\n")
     } 
-    if (refinement.method == "ps.weight" | refinement.method == "ps.match") 
+    if (refinement.method == "ps.weight" || 
+        refinement.method == "ps.match") 
     {
       cat("Weighted Difference-in-Differences with Propensity Score\n")
     } 
-    if (refinement.method == "CBPS.weight" | refinement.method == "CBPS.match") 
+    if (refinement.method == "CBPS.weight" || 
+        refinement.method == "CBPS.match") 
     {
       cat("Weighted Difference-in-Differences with Covariate Balancing Propensity Score\n")
     }
@@ -57,10 +61,11 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
           object$bootstrap.iterations, "Weighted bootstrap samples\n")  
     }
     
-    if (identical(object$se.method, "conditional") || identical(object$se.method, "unconditional"))
+    if (identical(object$se.method, "conditional") || 
+        identical(object$se.method, "unconditional"))
     {
       cat("\nStandard errors computed with", 
-          object$se.method, " method\n")
+          object$se.method, "method\n")
     }
     
     if (object$qoi == "att")
@@ -86,18 +91,30 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
   if (bias.corrected && identical(object$se.method, "bootstrap"))
   {
     if (!identical(object$se.method, "bootstrap")) stop("bias corrected estimates only available for bootstrap method currently")
-    df <- rbind(t(as.data.frame(object$estimates)), # point estimate
-                
-                apply(object$bootstrapped.estimates, 2, sd, na.rm = T), # bootstrap se
-                
+    a1 <- t(as.data.frame(object$estimates))
+    a2 <- apply(object$bootstrapped.estimates, 2, sd, na.rm = TRUE)
+    a3 <- apply(object$bootstrapped.estimates, 2, 
+          quantile, 
+          probs = c( (1 - object$confidence.level)/2, 
+                     object$confidence.level + (1 - object$confidence.level)/2 ), 
+          na.rm = TRUE)
+    a4 <- 2*object$estimates - colMeans(object$bootstrapped.estimates, na.rm = TRUE)
+    a5 <- apply( (2*matrix(nrow = object$bootstrap.iterations, 
+                     ncol = length(object$estimates), 
+                     object$estimates, byrow = TRUE) - object$bootstrapped.estimates), 
+           2, 
+           quantile, 
+           probs = c((1 - object$confidence.level)/2, 
+                     object$confidence.level + (1 - object$confidence.level)/2), 
+           na.rm = TRUE)
+    df <- rbind(a1, # point estimate
+                a2, # bootstrap se
                 # Efron & Tibshirani 1993 p170 - 171
-                apply(object$bootstrapped.estimates, 2, quantile, probs = c( (1 - object$confidence.level)/2, object$confidence.level + (1 - object$confidence.level)/2 ), na.rm = T), # percentile confidence.level
+                a3, # percentile confidence.level
                 # Efron & Tibshirani 1993 p138
-                2*object$estimates - colMeans(object$bootstrapped.estimates, na.rm = T), # bc point estimate
-                
-                apply( (2*matrix(nrow = object$bootstrap.iterations, ncol = length(object$estimates), object$estimates, byrow = TRUE) - object$bootstrapped.estimates), 2, quantile, 
-                       probs = c((1 - object$confidence.level)/2, object$confidence.level + (1 - object$confidence.level)/2), 
-                       na.rm = T) ) # bc percentile confidence.level)
+                a4, # bc point estimate
+                a5) # bc percentile confidence.level)
+    
     rownames(df) <- c("estimate", "std.error", 
                       paste0((1 - object$confidence.level)/2 * 100, "%"),
                       paste0( (object$confidence.level + (1 - object$confidence.level)/2) * 100, "%"),
@@ -109,20 +126,28 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
   {
     if ( identical(object$se.method, "bootstrap") )
     {
-      df <- rbind(t(as.data.frame(object$estimates)), # point estimate
-                  
-                  apply(object$bootstrapped.estimates, 2, sd, na.rm = T), # bootstrap se
-                  
-                  # Efron & Tibshirani 1993 p170 - 171
-                  apply(object$bootstrapped.estimates, 2, quantile, probs = c( (1 - object$confidence.level)/2, object$confidence.level + (1 - object$confidence.level)/2 ), na.rm = T))
+      a1 <- t(as.data.frame(object$estimates))
+      a2 <- apply(object$bootstrapped.estimates, 2, sd, na.rm = TRUE)
+      a3 <- apply(object$bootstrapped.estimates, 2, quantile, 
+            probs = c( (1 - object$confidence.level)/2, 
+                       object$confidence.level + (1 - object$confidence.level)/2 ), 
+            na.rm = TRUE)
+      df <- rbind(a1, # point estimate
+                  a2, # bootstrap se
+                  a3) # Efron & Tibshirani 1993 p170 - 171
+      
       rownames(df) <- c("estimate", "std.error", 
                         paste0((1 - object$confidence.level)/2 * 100, "%"),
                         paste0( (object$confidence.level + (1 - object$confidence.level)/2) * 100, "%"))
       tdf <- t(df)
       if (!verbose) return(t(df))
-      return(list("summary" = tdf, "lag" = lag, "iterations" = object$bootstrap.iterations, "qoi" = object$qoi) )   
+      return(list("summary" = tdf, 
+                  "lag" = lag, 
+                  "iterations" = object$bootstrap.iterations, 
+                  "qoi" = object$qoi) )   
     }
-    else if (identical(object$se.method, "conditional") || identical(object$se.method, "unconditional")) 
+    else if (identical(object$se.method, "conditional") || 
+             identical(object$se.method, "unconditional")) 
     {
       
       critical.vals <- rep(qnorm( (1 - object$confidence.level) / 2), 2) * c(1, -1)
@@ -141,7 +166,9 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
                          paste0( (object$confidence.level + (1 - object$confidence.level)/2) * 100, "%"))
       rownames(tdf) <- names(object$estimates)
       if (!verbose) return(tdf)
-      return(list("summary" = tdf, "lag" = lag, "qoi" = object$qoi) )
+      return(list("summary" = tdf, 
+                  "lag" = lag, 
+                  "qoi" = object$qoi) )
     } else {
       stop("se.method not specified correctly")
     }
@@ -159,41 +186,66 @@ summary.PanelEstimate <- function(object, verbose = TRUE,
 #' The only mandatory argument is an object of the \code{PanelEstimate} class.
 #'
 #' @param x a \code{PanelEstimate} object
-#' @param ylab default is "Estimated Effect of Treatment. This is the same argument as the standard argument for \code{plot}
-#' @param xlab default is "Time". This is the same argument as the standard argument for \code{plot}
+#' @param ylab default is "Estimated Effect of Treatment." This is the same argument as the standard argument for \code{plot()}
+#' @param xlab default is "Time". This is the same argument as the standard argument for \code{plot()}
 #' @param main default is "Estimated Effects of Treatment Over Time". This is the same argument as the standard argument for \code{plot}
-#' @param ylim default is NULL. This is the same argument as the standard argument for \code{plot}
-#' @param ... Additional optional arguments to be passed to \code{plot}.
+#' @param ylim default is NULL. This is the same argument as the standard argument for \code{plot()}
+#' @param pch default is NULL. This is the same argument as the standard argument for \code{plot()}
+#' @param cex default is NULL. This is the same argument as the standard argument for \code{plot()}
+#' @param bias.corrected logical indicating whether or not bias corrected estimates should be plotted Default is FALSE. This argument only applies for standard errors calculated with the bootstrap. 
+#' @param ... Additional optional arguments to be passed to \code{plot()}.
 #' @examples
+#' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' # create subset of data for simplicity
 #' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
 #'                          treatment = "dem", refinement.method = "mahalanobis", 
-#'                          data = dem, match.missing = TRUE, 
-#'                          covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
+#'                          data = dem.sub, match.missing = TRUE, 
+#'                          covs.formula = ~ tradewb,
 #'                          size.match = 5, qoi = "att",
 #'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-#' PE.results <- PanelEstimate(sets = PM.results, data = dem)
+#' PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
 #' plot(PE.results)
-#'
 #'
 #' @method plot PanelEstimate
 #' @export
-plot.PanelEstimate <- function(x, ylab = "Estimated Effect of Treatment", 
+plot.PanelEstimate <- function(x, 
+                               ylab = "Estimated Effect of Treatment", 
                                xlab = "Time", 
                                main = "Estimated Effects of Treatment Over Time",
-                               ylim = NULL, ...)
+                               ylim = NULL, 
+                               pch = NULL,
+                               cex = NULL,
+                               bias.corrected = FALSE,
+                               ...)
 {
-  
   pe.object <- x
   plot.data <- summary(pe.object, 
-                       verbose = FALSE, bias.corrected = FALSE)
+                       verbose = FALSE, bias.corrected = bias.corrected)
+  
   if (is.null(ylim))
   {
     ylim <- c(min(plot.data[, 3]) - abs(mean(plot.data[, 3])),
               max(plot.data[, 4]) + abs(mean(max(plot.data[, 4]))))
   }
-  graphics::plot(x = 1:(nrow(plot.data)),y = plot.data[, 1], pch = 16, cex = 1.5,
-                 xaxt = "n", ylab = ylab, xlab = xlab, main = main, ylim = ylim, ...)
-  graphics::axis(side = 1, at = 1:nrow(plot.data), labels = rownames(plot.data))
-  graphics::segments(1:(nrow(plot.data)), plot.data[,3], 1:(nrow(plot.data)), plot.data[,4])
+  if (is.null(pch))
+  {
+    pch <- 16
+    
+  }
+  if (is.null(cex))
+  {
+    cex <- 1.5
+  }
+  graphics::plot(x = 1:(nrow(plot.data)),y = plot.data[, 1],
+                 xaxt = "n", ylab = ylab, xlab = xlab, 
+                 main = main, ylim = ylim, pch = pch, cex = cex, ...)
+  graphics::axis(side = 1, 
+                 at = 1:nrow(plot.data), 
+                 labels = rownames(plot.data), 
+                 ...)
+  graphics::segments(1:(nrow(plot.data)), 
+                     plot.data[,3], 
+                     1:(nrow(plot.data)), 
+                     plot.data[,4])
   graphics::abline(h = 0, lty = "dashed")
 }

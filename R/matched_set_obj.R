@@ -34,12 +34,14 @@
 #' \item{covs.formula}{One sided formula indicating which variables should be used for matching and refinement}
 #' \item{match.missing}{Logical variable indicating whether or not units should be matched on the patterns of missingness in their treatment histories}
 #' \item{max.match.size}{Maximum size of the matched sets after refinement. This argument only affects results when using a matching method}
-#' @author Adam Rauh <adamrauh@mit.edu>, In Song Kim <insong@mit.edu>, Erik Wang
+#' @author Adam Rauh <amrauh@umich..edu>, In Song Kim <insong@mit.edu>, Erik Wang
 #' <haixiao@Princeton.edu>, and Kosuke Imai <imai@harvard.edu>
 #' @export
 matched_set <- function(matchedsets, id, t, L, t.var, id.var, treatment.var)
 {
-  if(length(matchedsets) != length(id) | length(matchedsets) != length(t) | length(id) != length(t))
+  if(length(matchedsets) != length(id) || 
+     length(matchedsets) != length(t) || 
+     length(id) != length(t))
   {
     stop("Number of matched sets, length of t, length of id specifications do not match up")
   }
@@ -72,9 +74,11 @@ matched_set <- function(matchedsets, id, t, L, t.var, id.var, treatment.var)
 #' \item{lag}{The size of the lag window used for matching on treatment history. This affects which treated and control units are matched.}
 #'
 #' @examples
+#' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' # create subset of data for simplicity
 #' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
-#'                          treatment = "dem", refinement.method = "mahalanobis",
-#'                          data = dem, match.missing = TRUE,
+#'                          treatment = "dem", refinement.method = "ps.match",
+#'                          data = dem.sub, match.missing = TRUE,
 #'                          covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
 #'                          size.match = 5, qoi = "att",
 #'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
@@ -122,19 +126,21 @@ summary.matched.set <- function(object, ..., verbose = TRUE)
 #' regular histogram. See the \code{include.empty.sets} argument for more information about this.
 #'
 #' @param x a \code{matched.set} object
-#' @param ... optional arguments to be passed to \code{hist}
-#' @param border default is NA. This is the same argument as the standard argument for \code{hist}
-#' @param col default is "grey". This is the same argument as the standard argument for \code{hist}
-#' @param ylab default is "Frequency of Size". This is the same argument as the standard argument for \code{hist}
-#' @param xlab default is "Matched Set Size". This is the same argument as the standard argument for \code{hist}
-#' @param lwd default is NULL. This is the same argument as the standard argument for \code{hist}
+#' @param ... optional arguments to be passed to \code{hist()}
+#' @param border default is NA. This is the same argument as the standard argument for \code{hist()}
+#' @param col default is "grey". This is the same argument as the standard argument for \code{hist()}
+#' @param ylab default is "Frequency of Size". This is the same argument as the standard argument for \code{hist()}
+#' @param xlab default is "Matched Set Size". This is the same argument as the standard argument for \code{hist()}
+#' @param lwd default is NULL. This is the same argument as the standard argument for \code{hist()}
 #' @param main default is "Distribution of Matched Set Sizes". This is the same argument as the standard argument for \code{hist}
-#' @param freq default is TRUE. See \code{freq} argument in \code{hist} function for more.
+#' @param freq default is TRUE. See \code{freq} argument in \code{hist()} function for more.
 #' @param include.empty.sets logical value indicating whether or not empty sets should be included in the histogram. default is FALSE. If FALSE, then empty sets will be noted as a separate vertical bar at x = 0. If TRUE, empty sets will be included as normal sets.
 #'
 #' @examples
+#' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' # create subset of data for simplicity
 #' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
-#'                          treatment = "dem", refinement.method = "mahalanobis",
+#'                          treatment = "dem", refinement.method = "ps.match",
 #'                          data = dem, match.missing = TRUE,
 #'                          covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
 #'                          size.match = 5, qoi = "att",
@@ -154,7 +160,10 @@ plot.matched.set <- function(x, ..., border = NA, col = "grey", ylab = "Frequenc
 
     if(include.empty.sets)
     {
-      graphics::hist(x = lvec, freq = freq, border = border, col = col, ylab = ylab, xlab = xlab, main = main, ...)
+      graphics::hist(x = lvec, freq = freq, 
+                     border = border, col = col, 
+                     ylab = ylab, xlab = xlab, 
+                     main = main, ...)
     }
     else
     {
@@ -163,7 +172,8 @@ plot.matched.set <- function(x, ..., border = NA, col = "grey", ylab = "Frequenc
       if(sum(lvec == 0) > 0)
       {
         num.empties <- as.character(sum(lvec == 0))
-        graphics::hist(x = lvec.nonempty, freq = freq, border = border, col = col, ylab = ylab,
+        graphics::hist(x = lvec.nonempty, freq = freq, 
+                       border = border, col = col, ylab = ylab,
                        xlab = xlab, main = main, ...)
         graphics::lines(x = c(0,0),
               y = c(0, num.empties),
@@ -187,8 +197,10 @@ plot.matched.set <- function(x, ..., border = NA, col = "grey", ylab = "Frequenc
 #' @param ... additional arguments to be passed to \code{print}
 #'
 #' @examples
+#' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' # create subset of data for simplicity
 #' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
-#'                          treatment = "dem", refinement.method = "mahalanobis",
+#'                          treatment = "dem", refinement.method = "ps.match",
 #'                          data = dem, match.missing = TRUE,
 #'                          covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
 #'                          size.match = 5, qoi = "att",
@@ -232,24 +244,4 @@ print.matched.set <- function(x, ..., verbose = FALSE)
   class(temp) <- "matched.set"
 
   return(temp)
-}
-
-#helper function for get_covariate_balance()
-build_balance_mats <- function(idx, ordered_expanded_data, msets)
-{
-
-  subset.per.matchedset <- function(sub.idx, set)
-  {
-
-    wts <- attr(set, "weights")[which(set == ordered_expanded_data[sub.idx[1:(length(sub.idx) - 1)], attr(msets, "id.var")])]
-    return(cbind(ordered_expanded_data[sub.idx,], data.frame("weights" = c(wts, Inf))))
-  }
-  unnest <- function(mset.idx, mset)
-  {
-    # print(mset.idx)
-    
-    lapply(mset.idx, subset.per.matchedset, set = mset)
-  }
-  result <- mapply(FUN = unnest, mset.idx = idx, mset = msets, SIMPLIFY = FALSE)
-  return(result)
 }

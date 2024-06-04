@@ -1,7 +1,7 @@
 #' DisplayTreatment
 #' 
 #' \code{DisplayTreatment} visualizes the treatment distribution
-#' across units and time in a panel dataset
+#' across units and time in a panel data set
 #'
 #' @param unit.id Name of the unit identifier variable as a character string
 #' @param time.id Name of the time identifier variable as a character string
@@ -29,7 +29,7 @@
 #' @param hide.x.tick.label logical. If TRUE, x axis tick labels are not shown. Default is FALSE. 
 #' @param hide.y.tick.label logical. If TRUE, y axis tick labels are not shown. Default is FALSE.
 #' @param dense.plot logical. if TRUE, lines between tiles are removed on resulting plot. This is useful for producing more readable plots in situations where the number of units and/or time periods is very high.
-#' @return \code{DisplayTreatment} returns a treatment variation plot (using ggplot2),
+#' @return \code{DisplayTreatment} returns a treatment variation plot (using ggplot2 geom_tile() or geom_raster()),
 #' which visualizes the variation of treatment across unit and time.
 #' @author In Song Kim <insong@mit.edu>, Erik Wang
 #' <haixiao@Princeton.edu>, Adam Rauh <amrauh@umich.edu>, and Kosuke Imai <imai@harvard.edu>
@@ -63,15 +63,16 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
 
 {
   
-  alphaweight <- NULL #for some reason --as-cran checks need this
+  alphaweight <- NULL #--as-cran checks need this
   
   
-  if (!inherits(data, "data.frame")) stop("please convert data to data.frame class")
+  if (any(class(data) != "data.frame")) stop("please convert data to data.frame class")
   
   if (any(is.na(data[, unit.id]))) stop("Cannot have NA unit ids")
-  # if(!class(data[, unit.id]) %in% c("integer", "numeric")) stop("please convert unit id column to integer or numeric")
-  if (!inherits(data[, time.id], "integer")) stop("please convert time id to consecutive integers")
-  #if (class(data[, time.id]) != "integer") stop("please convert time id to consecutive integers")
+  
+  data <- data[order(data[,unit.id], data[,time.id]), ]
+  data <- check_time_data(data, time.id)
+  
   
   if (gradient.weights && is.null(matched.set)) stop("gradient.weights cannot be TRUE without a provided matched set")
   if (!gradient.weights && !show.set.only && !is.null(matched.set)) {
@@ -83,7 +84,9 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
   # rename variables to match with the object names in the loop below
   colnames(data) <- c("unit.id", "time.id", "treatment")  
   
-  data$trintens <- as.numeric(tapply(data$treatment, data$unit.id, mean, na.rm = TRUE)[as.character(data$unit.id)])
+  data$trintens <- as.numeric(tapply(data$treatment, 
+                                     data$unit.id, mean, 
+                                     na.rm = TRUE)[as.character(data$unit.id)])
   data <- data[order(data$trintens, decreasing = decreasing), ] 
   
   
@@ -97,9 +100,9 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
   {
      #should only be one
     t.id <- as.numeric(unlist(strsplit(names(matched.set), 
-                                     split = "[.]"))[c(T,F)])
+                                     split = "[.]"))[c(TRUE,FALSE)])
     t.t <- as.numeric(unlist(strsplit(names(matched.set),
-                                    split = "[.]"))[c(F,T)])
+                                    split = "[.]"))[c(FALSE,TRUE)])
     lag <- attr(matched.set, "lag")
     t.range <- (t.t - lag):t.t
     control.ids <- unlist(matched.set)
@@ -164,22 +167,24 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
       wts <- attr(matched.set[[1]], "weights")
       max.wt <- max(wts)
       min.wt <- min(wts[wts > 0])
-      #min.wt <- min(wts)
+      
       low.wt <- min.wt * .5
       wts.z <- wts[wts > 0]
       wt <- wts.z[match(data$unit.id, names(wts.z))]
       wt[is.na(wt) | wt == 0] <- low.wt
       data$alphaweight <- wt
       
-      data[!(data$time %in% t.range & data$unit.id %in% wtd.ids), "alphaweight"] <- low.wt
-      data[data$unit.id == t.id & data$time %in% t.range, "alphaweight"] <- max.wt
+      data[!(data$time %in% t.range & data$unit.id %in% wtd.ids), 
+           "alphaweight"] <- low.wt
+      data[data$unit.id == t.id & data$time %in% t.range, 
+           "alphaweight"] <- max.wt
       
-      data$alphaweight <- (data$alphaweight - min(data$alphaweight)) / (max(data$alphaweight) - min(data$alphaweight))
-      data$alphaweight[data$alphaweight == min(data$alphaweight)] <- min(data$alphaweight[data$alphaweight > 0]) * .5
-      
-      
-      
-    } else #if(!gradient.weights) 
+      data$alphaweight <- (data$alphaweight - min(data$alphaweight)) / 
+        (max(data$alphaweight) - min(data$alphaweight))
+      data$alphaweight[data$alphaweight == min(data$alphaweight)] <- 
+        min(data$alphaweight[data$alphaweight > 0]) * .5
+    
+    } else 
     {
       low.wt <- 1 * .5
       max.wt <- 1
@@ -200,7 +205,8 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
     } else
     {
       p <- ggplot(data, aes(y = unit.id, x= time.id)) +
-        geom_raster(aes(fill = treatment, alpha = alphaweight), hjust = 0, vjust = .5)
+        geom_raster(aes(fill = treatment, alpha = alphaweight), 
+                    hjust = 0, vjust = .5)
       
     }
     
@@ -236,7 +242,9 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
   {
     pjp <- p
   } else {
-    pjp <- p + scale_y_discrete(expand = c(0, 0), labels = unique(as.character(data$unit.id))) + 
+    pjp <- p + 
+      scale_y_discrete(expand = c(0, 0), 
+                       labels = unique(as.character(data$unit.id))) + 
       ggtitle(title) + xlab(xlab) + ylab(ylab)
   }
 
