@@ -2,59 +2,58 @@
 % Please edit documentation in R/matched_set_obj.R
 \name{plot.matched.set}
 \alias{plot.matched.set}
-\title{Plot the distribution of the sizes of matched sets.}
+\title{Plot the distribution of control unit weights}
 \usage{
 \method{plot}{matched.set}(
   x,
   ...,
-  border = NA,
-  col = "grey",
-  ylab = "Frequency of Size",
-  xlab = "Matched Set Size",
-  lwd = NULL,
-  main = "Distribution of Matched Set Sizes",
-  freq = TRUE,
-  include.empty.sets = FALSE
+  panel.data,
+  type = "weights",
+  include.missing = TRUE,
+  low.color = "blue",
+  mid.color = "white",
+  high.color = "red",
+  missing.color = "grey50"
 )
 }
 \arguments{
 \item{x}{a \code{matched.set} object}
 
-\item{...}{optional arguments to be passed to \code{hist()}}
+\item{...}{Not used}
 
-\item{border}{default is NA. This is the same argument as the standard argument for \code{hist()}}
+\item{panel.data}{a \code{PanelData} object}
 
-\item{col}{default is "grey". This is the same argument as the standard argument for \code{hist()}}
+\item{type}{character indicating whether or not weights or distances should be plotted}
 
-\item{ylab}{default is "Frequency of Size". This is the same argument as the standard argument for \code{hist()}}
+\item{include.missing}{logical. When TRUE, all units appear as columns, including those that are never included in any matched sets. When FALSE, only units that appear in at least one matched set are included.}
 
-\item{xlab}{default is "Matched Set Size". This is the same argument as the standard argument for \code{hist()}}
+\item{low.color}{option passed to \code{ggplot2::scale_fill_gradientn()}. The color representing the low weight/distance values.}
 
-\item{lwd}{default is NULL. This is the same argument as the standard argument for \code{hist()}}
+\item{mid.color}{option passed to \code{ggplot2::scale_fill_gradientn()}. The color representing the medium weight/distance values.}
 
-\item{main}{default is "Distribution of Matched Set Sizes". This is the same argument as the standard argument for \code{hist}}
+\item{high.color}{option passed to \code{ggplot2::scale_fill_gradientn()}. The color representing the high weight/distance values.}
 
-\item{freq}{default is TRUE. See \code{freq} argument in \code{hist()} function for more.}
-
-\item{include.empty.sets}{logical value indicating whether or not empty sets should be included in the histogram. default is FALSE. If FALSE, then empty sets will be noted as a separate vertical bar at x = 0. If TRUE, empty sets will be included as normal sets.}
+\item{missing.color}{option passed to \code{ggplot2::scale_fill_gradientn()}. The color representing the missing/zero weight/distance values.}
+}
+\value{
+returns a \code{ggplot2::geom_tile()} object producing a plot in alignment with the description above
 }
 \description{
-A plot method for creating a histogram of the distribution of the sizes of matched sets.
-This method accepts all standard optional \code{hist} arguments via the \code{...} argument.
-By default, empty matched sets (treated units that could not be
-matched with any control units) are noted as a vertical bar at x = 0 and not included in the
-regular histogram. See the \code{include.empty.sets} argument for more information about this.
+The method creates a heatmap with the following characteristics. The heatmap grid is m x n, where m is the number of treated observations (as identified by i,t pairs) and n is the number of units. Treated observations represent the rows, and every unit in the data set form the columns. The figure then shows the calculated weights or distances (as specified) for each control unit within the matched set as identified by the row. Weights/distances that are missing or zero are not considered in the shading scheme and are both treated as NA for all practical purposes. Note that not all refinement methods will return a distance. Those that do also require \code{verbose = TRUE} in the \code{PanelMatch} specification. 
+For example say (2, 5) is a treated observation and units 1, 4, 8 are matched as controls. Row i will represent (2,5) in the matrix, M. The columns indexed by w, x, and y, correspond to units 1, 4, and 8. M[i, w], M[i, x],  M[i, y] then contain the weights or pairwise distances of units 1, 4, and 8 within that matched set.
 }
 \examples{
-dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
-# create subset of data for simplicity
-PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2",
-                         treatment = "dem", refinement.method = "ps.match",
-                         data = dem, match.missing = TRUE,
-                         covs.formula = ~ I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
-                         size.match = 5, qoi = "att",
-                         outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-plot(PM.results$att)
-plot(PM.results$att, include.empty.sets = TRUE)
+ dem.panel <- PanelData(dem, "wbcode2", "year", "dem", "y")
+ PM.results <- PanelMatch(panel.data = dem.panel, lag = 4,
+                        refinement.method = "ps.match",
+                        match.missing = TRUE,
+                        covs.formula = ~ tradewb,
+                        size.match = 5, qoi = "att",
+                        lead = 0:4,
+                        forbid.treatment.reversal = FALSE)
+
+ mso <- extract(PM.results)
+ plot(mso, panel.data = dem.panel)
+
 
 }

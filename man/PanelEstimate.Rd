@@ -2,11 +2,11 @@
 % Please edit documentation in R/PanelEstimate.R
 \name{PanelEstimate}
 \alias{PanelEstimate}
-\title{PanelEstimate}
+\title{Estimate a causal quantity of interest}
 \usage{
 PanelEstimate(
   sets,
-  data,
+  panel.data,
   number.iterations = 1000,
   df.adjustment = FALSE,
   confidence.level = 0.95,
@@ -22,8 +22,7 @@ PanelEstimate(
 \item{sets}{A \code{PanelMatch} object attained via the
 \code{PanelMatch()} function.}
 
-\item{data}{The same time series cross sectional data set provided to the \code{PanelMatch()} function used to produce
-the matched sets.}
+\item{panel.data}{The same time series cross sectional data set provided to the \code{PanelMatch()} function used to produce the matched sets. This should be a \code{PanelData} object.}
 
 \item{number.iterations}{If using bootstrapping for calculating standard errors, this is the number of bootstrap iterations. Provide as integer. If \code{se.method} is not equal to "bootstrap", this argument has no effect.}
 
@@ -40,7 +39,7 @@ estimates for statistical inference. The default is .95.}
 
 \item{pooled}{Logical. If TRUE, estimates and standard errors are returned for treatment effects pooled across the entire lead window. Only available for \code{se.method = ``bootstrap''}}
 
-\item{include.placebo.test}{Logical. If TRUE, a placebo test is run and returned in the results. The placebo test uses the same specifications for calculating standard errors as the main results. That is, standard errors are calculated according to the user provided \code{se.method} and \code{confidence.level} arguments (and, if applicable, parallelization specifications). If these are invalid for some reason, an error will be thrown.}
+\item{include.placebo.test}{Logical. If TRUE, a placebo test is run and returned in the results. The placebo test uses the same specifications for calculating standard errors as the main results. That is, standard errors are calculated according to the user provided \code{se.method} and \code{confidence.level} arguments (and, if applicable, parallelization specifications).}
 
 \item{parallel}{Logical. If TRUE and \code{se.method = ``bootstrap''}, bootstrap procedure will be parallelized. Default is FALSE. If \code{se.method} is not set to \code{bootstrap}, this option does nothing.}
 
@@ -48,7 +47,7 @@ estimates for statistical inference. The default is .95.}
 }
 \value{
 \code{PanelEstimate} returns a list of class
-`PanelEstimate' containing the following components:
+\code{PanelEstimate} containing the following components:
 \item{estimates}{the point estimates of the quantity of interest for the lead periods specified}
 \item{se.method}{The method used to calculate standard errors. This is the same as the argument provided to the function.}
 \item{bootstrapped.estimates}{the bootstrapped point estimate values, when applicable}
@@ -64,26 +63,26 @@ estimates for statistical inference. The default is .95.}
 \item{placebo.test}{if \code{include.placebo.test = TRUE}, a placebo test is conducted using \code{placebo_test()} and returned as a list. See documentation for \code{placebo_test()} for more about each individual item.}
 }
 \description{
-\code{PanelEstimate} estimates a causal quantity of interest, including the average treatment effect for
+Estimate a causal quantity of interest, including the average treatment effect for
 treated or control units (att and atc, respectively), the average effect of treatment reversal on reversed units (art), or average treatment effect (ate), as specified in \code{PanelMatch()}.
 This is done by estimating the counterfactual outcomes for each treated unit using
 matched sets. Users will provide matched sets that were obtained by the
-\code{PanelMatch} function and obtain point estimates via a
-weighted average computation with weighted bootstrap standard errors. Point estimates and standard errors will be
-produced for each period in the lead window specified by the \code{lead} argument from \code{PanelMatch()}.
-Users may run multiple estimations by providing lists of each argument to the function.
-However, in this format, every argument must be explicitly specified in each configuration
-and must adhere to the same data types/structures outlined below.
+\code{PanelMatch} function and obtain point estimates and standard errors.
 }
 \examples{
 dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
 # create subset of data for simplicity
-PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-                        treatment = "dem", refinement.method = "ps.match", 
-                         data = dem.sub, match.missing = TRUE, covs.formula = ~ tradewb, 
-                         size.match = 5, qoi = "att", outcome.var = "y", 
-                         lead = 0:4, forbid.treatment.reversal = TRUE)
-PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
+PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+                         refinement.method = "ps.match", 
+                         match.missing = TRUE, 
+                         covs.formula = ~ tradewb,
+                         size.match = 5, qoi = "att",
+                         lead = 0:4, 
+                         forbid.treatment.reversal = FALSE)
+PE.results <- PanelEstimate(sets = PM.results, 
+               panel.data = dem.sub.panel, 
+               se.method = "unconditional")
 
 }
 \references{

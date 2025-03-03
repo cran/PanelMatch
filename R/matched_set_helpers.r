@@ -13,7 +13,6 @@
 #'
 #' @keywords internal
 #'
-
 findBinaryTreated <- function(dmat, qoi.in,
                               treatedvar, 
                               time.var, 
@@ -133,7 +132,8 @@ get.matchedsets <- function(t, id, data, L, t.column, id.column, treatedvar,
 
   compmat <- data.table::dcast(data.table::as.data.table(d), 
                                formula = paste0(id.column, "~", t.column),
-                               value.var = treatedvar) #reshape the data so each row corresponds to a unit, columns specify treatment over time
+                               value.var = treatedvar) 
+  #reshape the data so each row corresponds to a unit, columns specify treatment over time
   
   
   if (match.on.missingness)
@@ -145,7 +145,8 @@ get.matchedsets <- function(t, id, data, L, t.column, id.column, treatedvar,
   control.histories <- get_comparison_histories(d, t, id, which(colnames(d) == t.column) - 1 ,
                                                 which(colnames(d) == id.column) - 1, L,
                                                 which(colnames(d) == treatedvar) - 1,
-                                                identical(qoi.in, "atc")) #control histories should be a list
+                                                identical(qoi.in, "atc")) 
+  #control histories should be a list
   
   if (!is.null(restrict.control.period))
   {
@@ -294,4 +295,3 @@ expand_treated_ts <- function(lag, treated.ts)
   }
   lapply(treated.ts, helper)
 }
-

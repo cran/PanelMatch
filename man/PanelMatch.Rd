@@ -2,16 +2,12 @@
 % Please edit documentation in R/PanelMatch.R
 \name{PanelMatch}
 \alias{PanelMatch}
-\title{PanelMatch}
+\title{Create and refine sets of matched treated and control observations}
 \usage{
 PanelMatch(
+  panel.data,
   lag,
-  time.id,
-  unit.id,
-  treatment,
-  outcome.var,
   refinement.method,
-  data,
   qoi,
   size.match = 10,
   match.missing = TRUE,
@@ -28,22 +24,12 @@ PanelMatch(
 )
 }
 \arguments{
+\item{panel.data}{A \code{PanelData} object containing time series cross sectional data. 
+Time data must be sequential integers that increase by 1. Unit identifiers must be integers. Treatment data must be binary.}
+
 \item{lag}{An integer value indicating the length of treatment history periods to be matched on}
 
-\item{time.id}{A character string indicating the name of the time 
-variable in the \code{data}. This data currently must be formatted as sequential integers.}
-
-\item{unit.id}{A character string indicating the name of unit identifier in the data. This data must be integer.}
-
-\item{treatment}{A character string indicating the name of the treatment variable in the \code{data}. 
-The treatment must be a binary indicator variable (integer with 0 for the control group and 1 for the treatment group).}
-
-\item{outcome.var}{A character string identifying the outcome variable.}
-
-\item{refinement.method}{A character string specifying the matching or weighting method to be used for refining the matched sets. The user can choose "mahalanobis", "ps.match", "CBPS.match", "ps.weight", "CBPS.weight", or "none". The first three methods will use the \code{size.match} argument to create sets of at most \code{size.match} closest control units. Choosing "none" will assign equal weights to all control units in each matched set.}
-
-\item{data}{A \code{data.frame} object containing time series cross sectional data. 
-Time data must be sequential integers that increase by 1. Unit identifiers must be integers. Treatment data must be binary.}
+\item{refinement.method}{A character string specifying the matching or weighting method to be used for refining the matched sets. The user can choose "mahalanobis", "ps.match", "CBPS.match", "ps.weight", "CBPS.weight", "ps.msm.weight", "CBPS.msm.weight", or "none". The first three methods will use the \code{size.match} argument to create sets of at most \code{size.match} closest control units. Choosing "none" will assign equal weights to all control units in each matched set. The MSM methods refer to marginal structural models. See Imai, Kim, and Wang (2023) for a more in-depth discussion of MSMs.}
 
 \item{qoi}{quantity of interest, provided as a string: \code{att} (average treatment effect on treated units), \code{atc} (average treatment effect of treatment on the control units) \code{art} (average effect of treatment reversal for units that experience treatment reversal), or \code{ate} (average treatment effect).}
 
@@ -92,42 +78,39 @@ high correlation between variables. Default is FALSE. This argument is only nece
 \item{placebo.test}{logical TRUE/FALSE. indicates whether or not you want to be able to run a placebo test. This will add additional requirements on the data -- specifically, it requires that no unit included in the matching/refinement process can having missing outcome data over the lag window. Additionally, you should not use the outcome variable in refinement when \code{placebo.test = TRUE}.}
 }
 \value{
-\code{PanelMatch()} returns an object of class "PanelMatch". This is a list that contains a few specific elements: 
+\code{PanelMatch()} returns an object of class \code{PanelMatch}. This is a list that contains a few specific elements: 
 First, a \code{matched.set} object(s) that has the same name as the provided qoi if the qoi is "att", "art", or "atc". 
 If qoi = "ate" then two \code{matched.set} objects will be attached, named "att" and "atc." Please consult the documentation for
-\code{matched_set()} to read more about the structure and usage of \code{matched.set} objects. Also, see the vignette page about matched.set objects for 
-more information about these objects: \code{vignette("matched_set_objects", package = "PanelMatch")}.
-The \code{PanelMatch} object also has some additional attributes:
-\item{qoi}{The qoi specified in the original function call}
-\item{lead}{the lead window specified in the original function call}
-\item{forbid.treatment.reversal}{logial value matching the forbid.treatment.reversal parameter provided in the function call.}
-\item{outcome.var}{character string matching the outcome variable provided in the original function call.}
+\code{matched_set()} to read more about the structure and usage of \code{matched.set} objects. 
+The \code{PanelMatch} object also has some additional attributes that track metadata about the specification, like the names of the unit and time identifier variables.
 }
 \description{
-Create refined/weighted sets of treated and control units
-}
-\details{
-\code{PanelMatch} identifies a matched set for each treated
+\code{PanelMatch} identifies treated observations and a matched set for each treated
 observation. Specifically, for a given treated unit, the matched
 set consists of control observations that have an identical
 treatment history up to a number of \code{lag}
-time periods. Researchers must specify \code{lag}. A further refinement of
-the matched set may be performed by setting a maximum size of each matched
-set, \code{size.match} (the maximum number of control units that can be matched to a treated unit). Users can 
-also specify covariates that should be used to identify
-similar control units and a method for defining similarity/distance between units. This is done 
-via the \code{covs.formula} and \code{refinement.method} arguments, respectively, which are explained in more detail below.
+time periods. A further refinement of
+the matched set using matching or weighting techniques, described below.
 }
 \examples{
 dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
 # create subset of data for simplicity
-PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-                         treatment = "dem", refinement.method = "ps.match", 
-                         data = dem.sub, match.missing = TRUE, 
+PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+                         refinement.method = "ps.match", 
+                         match.missing = TRUE, 
                          covs.formula = ~ tradewb,
                          size.match = 5, qoi = "att",
-                         outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-
+                         lead = 0:4, 
+                         forbid.treatment.reversal = FALSE)
+# include lagged variables
+PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+                         refinement.method = "ps.weight", 
+                         match.missing = TRUE, 
+                         covs.formula = ~ tradewb + I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
+                         size.match = 5, qoi = "att",
+                         lead = 0:4, 
+                         forbid.treatment.reversal = FALSE)
 
 }
 \references{

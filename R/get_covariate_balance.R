@@ -1,37 +1,113 @@
-#' Calculate covariate balance
+#' Calculate covariate balance measures for refined and unrefined matched sets
 #'
 #'
 #' Calculate covariate balance for user specified covariates across matched sets. Balance is assessed by taking the average
 #' of the difference between the values of the specified covariates for the treated unit(s) and the weighted average of
 #' the control units across all matched sets. Results are standardized and are expressed in standard deviations.
 #' Balance is calculated for each period in the specified lag window.
-#' @param matched.sets A \code{matched.set} object
-#' @param data The time series cross sectional data set (as a \code{data.frame} object) used to produce the \code{matched.set} object. This data set should be identical to the one passed to \code{PanelMatch()} and \code{PanelEstimate()} to ensure consistent results.
-#' @param plot logical. When TRUE, a plot showing the covariate balance calculation results will be shown. When FALSE, no plot is made, but the results of the calculations are returned. default is FALSE
+#' @param ... one or more PanelMatch objects
+#' @param panel.data \code{PanelData} object
 #' @param covariates a character vector, specifying the names of the covariates for which the user is interested in calculating balance.
-#' @param reference.line logical indicating whether or not a horizontal line should be present on the plot at y = 0. Default is TRUE.
-#' @param legend logical indicating whether or not a legend identifying the variables should be included on the plot. Default is TRUE.
-#' @param ylab Label for y axis. Default is "SD". This is the same as the ylab argument to \code{plot()}.
-#' @param use.equal.weights logical. If set to TRUE, then equal weights will be assigned to control units, rather than using whatever calculated weights have been assigned. This is helpful for assessing the improvement in covariate balance as a result of refining the matched sets.
-#' @param include.treatment.period logical. Default is TRUE. When TRUE, covariate balance measures for the period during which treatment occurs is included. These calculations are not included when FALSE. Users may wish to leave this period off in some circumstances. For instance, one would expect covariate balance to be poor during this period when treatment is continuous and a lagged outcome is included in the refinement formula.
-#' @param legend.position position of legend. See documentation for graphics::legend. Default is "topleft"
-#' @param ... Additional graphical parameters to be passed to the \code{plot} function in base R.
+#' @param include.unrefined logical. Indicates whether or not covariate balance measures for unrefined matched sets should be included. If TRUE, the function will return covariate balance results for the PanelMatch configurations provided, as well as a set of balance results that assume all matched controls have equal weight (i.e., the matched sets are unrefined). These results are included in addition to whatever PanelMatch configurations are specified to the function. Note that if you provide a PanelMatch object where no refinement is applied (that is, where \code{refinement.method = "none"}) and set this option to TRUE, then both sets of covariate balance results will be identical. If FALSE, then only balance calculations for the provided PanelMatch specifications are performed and returned. 
+#' @returns A list of matrices, or a list of lists (if the QOI is ATE). The matrices contain the calculated covariate balance levels for each specified covariate for each period. Each element in the list (whether that be a matrix or a sublist) corresponds to a \code{PanelMatch} configuration specified to the function. Results are returned in the order they were provided. Unrefined results are stored as a parallel list object in an attribute called "unrefined.balance.results". 
+#' 
 #' @examples
 #' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
 #' # create subset of data for simplicity
 #' #add some additional data to data set for demonstration purposes
 #' dem.sub$rdata <- runif(runif(nrow(dem.sub)))
-#' pm.obj <- PanelMatch(lead = 0:3, lag = 4, time.id = "year", unit.id = "wbcode2", treatment = "dem",
-#'                     outcome.var ="y", refinement.method = "ps.match",
-#'                     data = dem.sub, match.missing = TRUE,
-#'                     covs.formula = ~ tradewb + rdata + I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
-#'                     size.match = 5, qoi = "att")
-#' get_covariate_balance(pm.obj$att, dem.sub, covariates = c("tradewb", "rdata"),
-#'                          ylim = c(-2,2))
+#' dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
+#' PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+#'                          refinement.method = "ps.match", 
+#'                          match.missing = TRUE, 
+#'                          covs.formula = ~ tradewb + rdata,
+#'                          size.match = 5, qoi = "att",
+#'                          lead = 0:4, 
+#'                          forbid.treatment.reversal = FALSE)
+#' get_covariate_balance(PM.results, panel.data = dem.sub.panel, covariates = c("tradewb", "rdata"))
 #'
 #' @export
-get_covariate_balance <- function(matched.sets, 
-                                  data, 
+get_covariate_balance <- function(..., 
+                                  panel.data, 
+                                  covariates,
+                                  include.unrefined = TRUE)
+{
+  if (!inherits(panel.data, "PanelData")) stop("Please provide a PanelData object.")
+  
+  if(is.null(covariates))
+  {
+    stop("Please specify covariates")
+  }
+  if(!all(covariates %in% colnames(panel.data)))
+  {
+    stop("Some of the specified covariates are not columns in the data set.")
+  }
+  
+  pm.objs <- list(...)
+  
+  get_qois <- function(pm.obj) {
+  
+    if (inherits(pm.obj, "PanelMatch")) {
+      if (attr(pm.obj, "qoi") %in% c("att", "art", "atc"))
+      {
+        qoi <- attr(pm.obj, "qoi")
+      } else if (attr(pm.obj, "qoi") == "ate") {
+        qoi <- c("att", "atc")
+      } else {
+        stop("Error extracting QOI from provided PanelMatch object")
+      }
+    } else {
+      stop("invalid object: not a PanelMatch object")
+    }  
+    return(qoi)
+  }
+  
+  qoi.sets <- lapply(pm.objs,
+                     get_qois)  
+  
+  
+  balance.results <- list()
+  unrefined.balance.results <- list()
+  for (i in 1:length(pm.objs)) { # for each PM object
+    sub.list <- list()
+    unrefined.sub.list <- list()
+    for (q in qoi.sets[[i]]) { # get the qoi to extract the matched set object. unless qoi = ate, this will just be either att, art, atc. In case of ate, we need to loop over both att and atc
+      pm.obj <- pm.objs[[i]]
+      matched.set <- pm.obj[[q]]
+      sub.list[[q]] <- get_set_covariate_balance(matched.set, 
+                                                 panel.data,
+                                                 covariates,
+                                                 use.equal.weights = FALSE)
+      balance.results[[i]] <- sub.list
+      if (include.unrefined)
+      {
+        unrefined.sub.list[[q]] <- get_set_covariate_balance(matched.set, 
+                                                   panel.data,
+                                                   covariates,
+                                                   use.equal.weights = TRUE)
+        unrefined.balance.results[[i]] <- unrefined.sub.list
+      }
+    }
+  }
+  
+  class(balance.results) <- c("PanelBalance", "list")
+  attr(balance.results, "treatment") <- attr(panel.data, 'treatment')
+  if(length(unrefined.balance.results) == 0)  unrefined.balance.results <- NULL;
+  if (!is.null(unrefined.balance.results))
+  {
+    class(unrefined.balance.results) <- c("PanelBalance", "list")
+    attr(unrefined.balance.results, "treatment") <- attr(balance.results, "treatment")
+  }
+  attr(balance.results, "unrefined.balance.results") <- unrefined.balance.results
+  attr(balance.results, "covariates") <- covariates
+  return(balance.results)
+}
+
+
+
+
+get_set_covariate_balance <- function(matched.sets, 
+                                  panel.data, 
                                   covariates,
                                   use.equal.weights = FALSE,
                                   plot = FALSE,
@@ -39,73 +115,30 @@ get_covariate_balance <- function(matched.sets,
                                   legend = TRUE, 
                                   ylab = "SD",
                                   include.treatment.period = TRUE,
-                                  legend.position = "topleft",
-                                  ...)
+                                  legend.position = "topleft")
 {
   
-  if(is.null(covariates))
-  {
-    stop("Please specify covariates")
-  }
-  if(!all(covariates %in% colnames(data)))
-  {
-    stop("Some of the specified covariates are not columns in the data set.")
-  }
   
   if (!inherits(matched.sets, "matched.set")) 
   {
-    stop("Please pass a matched.set object")
+    stop("Error extracting matched.set object")
   }
   unit.id <- attr(matched.sets, "id.var")
   time.id <- attr(matched.sets, "t.var")
   lag <- attr(matched.sets, "lag")
   treatment <- attr(matched.sets, "treatment.var")
-  
-  
-  if (!inherits(data[, unit.id], "integer") && 
-      !inherits(data[, unit.id], "numeric"))
-  {
-    stop("please convert unit id column to integer or numeric")
-  }
-  
-  
-  
-  
-  if(any(table(data[, unit.id]) != max(table(data[, unit.id]))))
-  {
-    testmat <- data.table::dcast(data.table::as.data.table(data), 
-                                 formula = paste0(unit.id, "~", time.id),
-                                 value.var = treatment)
-    d <- data.table::melt(data.table::data.table(testmat), 
-                          id = unit.id, 
-                          variable = time.id, 
-                          value = treatment,
-                          variable.factor = FALSE, 
-                          value.name = treatment)
-    d <- data.frame(d)[,c(1,2)]
-    class(d[, 2]) <- "integer"
-    data <- merge(data.table::data.table(d), 
-                  data.table::data.table(data), 
-                  all.x = TRUE, 
-                  by = c(unit.id, time.id))
-    data <- as.data.frame(data)
-    
-  }
-  
-  ordered.data <- data[order(data[,unit.id], data[,time.id]), ]
-  ordered.data <- check_time_data(ordered.data, time.id)
-  
+
   
   matched.sets <- matched.sets[sapply(matched.sets, length) > 0]
   
   
-  othercols <- colnames(ordered.data)[!colnames(ordered.data) %in% c(time.id, 
+  othercols <- colnames(panel.data)[!colnames(panel.data) %in% c(time.id, 
                                                                      unit.id, 
                                                                      treatment)]
   #subset to keep only needed covariates
   othercols <- othercols[othercols %in% covariates]
   
-  ordered.data <- ordered.data[, c(unit.id, time.id, treatment, othercols), 
+  ordered.data <- panel.data[, c(unit.id, time.id, treatment, othercols), 
                                drop = FALSE] #reorder columns 
   ordered.data <- ordered.data[, unique(c(unit.id, time.id, 
                                           treatment, covariates)), drop = FALSE]
@@ -190,67 +223,11 @@ get_covariate_balance <- function(matched.sets,
     warning(paste0("Some variables were removed due to low variation, inadequate data needed for calculation: ", removed.vars))
   }
   
-  if (!include.treatment.period)
-  {
-    pointmatrix <- pointmatrix[-nrow(pointmatrix), ,drop = FALSE]
-    stop.val <- 1
-    start.val <- nrow(pointmatrix)
-  } else {
-    stop.val <- 0
-    start.val <- nrow(pointmatrix) - 1
-  }
+  return(pointmatrix)
   
   
-  if (!plot) return(pointmatrix)
-  
-  if (plot)
-  {
-    treated.included <- treatment %in% colnames(pointmatrix)
-    
-    if (treated.included)
-    {
-      treated.data <- pointmatrix[,which(colnames(pointmatrix) == treatment)] # treated data
-      pointmatrix <- pointmatrix[,-which(colnames(pointmatrix) == treatment)] #all non-treatment variable data
-      graphics::matplot(pointmatrix, pch = 19,
-                        type = "b", 
-                        col = 1:ncol(pointmatrix), 
-                        lty = 1, ylab = ylab, xaxt = "n", ...)
-      graphics::lines(x = 1:nrow(pointmatrix), 
-                      y = as.numeric(treated.data), 
-                      type = "b",
-                      lty = 2, lwd = 3)
-      graphics::axis(side = 1, labels = paste0("t-", start.val:stop.val), 
-                     at = 1:nrow(pointmatrix), ...)  
-    } else
-    {
-      
-      graphics::matplot(pointmatrix, type = "b",
-                        pch = 19,
-                        col = 1:ncol(pointmatrix), 
-                        lty = 1, ylab = ylab, xaxt = "n", ...)
-      graphics::axis(side = 1, labels = paste0("t-", start.val:stop.val), 
-                     at = 1:nrow(pointmatrix), ...)  
-    }
-    
-    if (legend) {
-      if (treated.included)
-      {
-        legend(legend.position, 
-               legend = c(colnames(pointmatrix), treatment), 
-               col = c(1:ncol(pointmatrix), "black"), 
-               lty = c(rep(1, ncol(pointmatrix)), 2))  
-      } else {
-        legend(legend.position, 
-               legend = colnames(pointmatrix), 
-               col = 1:ncol(pointmatrix), lty = 1)
-      }
-      
-    }
-    if(reference.line) graphics::abline(h = 0, lty = "dashed")
-  }
 }
 
-#helper function 
 build_balance_mats <- function(idx, ordered_expanded_data, msets)
 {
   subset.per.matchedset <- function(sub.idx, set)

@@ -6,6 +6,7 @@
 #' @param qoi_in string specifying the QOI
 #'
 #' @return Named vector containing the per-unit sums. 
+#' @keywords internal
 perunitSum <- function(udf,
                        lead.in,
                        dependent.in,
@@ -27,6 +28,7 @@ perunitSum <- function(udf,
 #' @param qoi_in string specifying the QOI
 #'
 #' @return Named vector containing the per-unit sums.
+#' @keywords internal
 perunitSum_Dit <- function(udf, qoi_in) {
   
   d.it <- udf[, paste0("dits_",qoi_in)] #should always return a vector
@@ -145,9 +147,6 @@ handle_bootstrap_parallel <- function(qoi.in,
                         dependent.in = outcome.variable, 
                         qoi_in = qoi.in)
     
-    
-    
-    
     per.unit.dit.sums <- by(data.in, as.factor(data.in[, unit.id.variable]),
                             FUN = perunitSum_Dit,
                             qoi_in = qoi.in)
@@ -167,9 +166,6 @@ handle_bootstrap_parallel <- function(qoi.in,
                         lead.in = lead,
                         dependent.in = outcome.variable,
                         qoi_in = qoi.in)
-    
-    
-    
     
     per.unit.dit.sums <- by(data.in, as.factor(data.in[, unit.id.variable]),
                             FUN = perunitSum_Dit,
@@ -346,9 +342,6 @@ handle_bootstrap <- function(qoi.in,
                         dependent.in = outcome.variable, 
                         qoi_in = qoi.in)
     
-    
-    
-    
     per.unit.dit.sums <- by(data.in, as.factor(data.in[, unit.id.variable]),
                             FUN = perunitSum_Dit,
                             qoi_in = qoi.in)
@@ -368,10 +361,7 @@ handle_bootstrap <- function(qoi.in,
                         lead.in = lead,
                         dependent.in = outcome.variable,
                         qoi_in = qoi.in)
-    
-    
-    
-    
+
     per.unit.dit.sums <- by(data.in, as.factor(data.in[, unit.id.variable]),
                             FUN = perunitSum_Dit,
                             qoi_in = qoi.in)
@@ -419,9 +409,6 @@ handle_bootstrap <- function(qoi.in,
       coefs[k,] <- (att_new*sum(bdf$Dit * bdf$frequency) +
                       atc_new*sum(bdf.atc$Dit * bdf.atc$frequency)) /
         (sum(bdf$Dit * bdf$frequency) + sum(bdf.atc$Dit * bdf.atc$frequency))
-      
-      
-      
     }
     
     if (pooled)
@@ -502,7 +489,7 @@ handle_unconditional_se <- function(qoi.in, data.in, lead,
                                  outcome.variable,
                                  unit.id.variable) 
 {
-  
+  if (identical(qoi.in, "ate")) stop("analytical standard errors not available for ATE")
   Ais <- by(data.in, as.factor(data.in[, unit.id.variable]),
             FUN = perunitSum,
             lead.in = lead,

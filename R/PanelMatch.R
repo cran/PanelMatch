@@ -1,27 +1,15 @@
-#' PanelMatch
+#' Create and refine sets of matched treated and control observations
 #' 
-#' Create refined/weighted sets of treated and control units
-#' 
-#' \code{PanelMatch} identifies a matched set for each treated
+#' \code{PanelMatch} identifies treated observations and a matched set for each treated
 #' observation. Specifically, for a given treated unit, the matched
 #' set consists of control observations that have an identical
 #' treatment history up to a number of \code{lag}
-#' time periods. Researchers must specify \code{lag}. A further refinement of
-#' the matched set may be performed by setting a maximum size of each matched
-#' set, \code{size.match} (the maximum number of control units that can be matched to a treated unit). Users can 
-#' also specify covariates that should be used to identify
-#' similar control units and a method for defining similarity/distance between units. This is done 
-#' via the \code{covs.formula} and \code{refinement.method} arguments, respectively, which are explained in more detail below.
+#' time periods. A further refinement of
+#' the matched set using matching or weighting techniques, described below. 
 #' @param lag An integer value indicating the length of treatment history periods to be matched on
-#' @param time.id A character string indicating the name of the time 
-#' variable in the \code{data}. This data currently must be formatted as sequential integers. 
-#' @param unit.id A character string indicating the name of unit identifier in the data. This data must be integer.
-#' @param treatment A character string indicating the name of the treatment variable in the \code{data}. 
-#' The treatment must be a binary indicator variable (integer with 0 for the control group and 1 for the treatment group).
-#' @param outcome.var A character string identifying the outcome variable.
-#' @param refinement.method A character string specifying the matching or weighting method to be used for refining the matched sets. The user can choose "mahalanobis", "ps.match", "CBPS.match", "ps.weight", "CBPS.weight", or "none". The first three methods will use the \code{size.match} argument to create sets of at most \code{size.match} closest control units. Choosing "none" will assign equal weights to all control units in each matched set.
+#' @param refinement.method A character string specifying the matching or weighting method to be used for refining the matched sets. The user can choose "mahalanobis", "ps.match", "CBPS.match", "ps.weight", "CBPS.weight", "ps.msm.weight", "CBPS.msm.weight", or "none". The first three methods will use the \code{size.match} argument to create sets of at most \code{size.match} closest control units. Choosing "none" will assign equal weights to all control units in each matched set. The MSM methods refer to marginal structural models. See Imai, Kim, and Wang (2023) for a more in-depth discussion of MSMs.
 #' @param match.missing Logical variable indicating whether or not units should be matched on the patterns of missingness in their treatment histories. Default is TRUE. When FALSE, neither treated nor control units are allowed to have missing treatment data in the lag window.
-#' @param data A \code{data.frame} object containing time series cross sectional data. 
+#' @param panel.data A \code{PanelData} object containing time series cross sectional data. 
 #' Time data must be sequential integers that increase by 1. Unit identifiers must be integers. Treatment data must be binary.
 #' @param size.match An integer dictating the number of permitted closest control units in a matched set after refinement. 
 #' This argument only affects results when using a matching method ("mahalanobis" or any of the refinement methods that end in ".match").
@@ -55,16 +43,11 @@
 #' \code{refinement.method = mahalanobis} and will have no impact otherwise.
 #' @param restrict.control.period (optional) integer specifying the number of pre-treatment periods that treated units and potentially matched control units should be non-NULL and in the control state. For instance, specifying 4 would mean that the treatment history cannot contain any missing data or treatment from t-4 to t. 
 #' @param placebo.test logical TRUE/FALSE. indicates whether or not you want to be able to run a placebo test. This will add additional requirements on the data -- specifically, it requires that no unit included in the matching/refinement process can having missing outcome data over the lag window. Additionally, you should not use the outcome variable in refinement when \code{placebo.test = TRUE}.
-#' @return \code{PanelMatch()} returns an object of class "PanelMatch". This is a list that contains a few specific elements: 
+#' @return \code{PanelMatch()} returns an object of class \code{PanelMatch}. This is a list that contains a few specific elements: 
 #' First, a \code{matched.set} object(s) that has the same name as the provided qoi if the qoi is "att", "art", or "atc". 
 #' If qoi = "ate" then two \code{matched.set} objects will be attached, named "att" and "atc." Please consult the documentation for
-#' \code{matched_set()} to read more about the structure and usage of \code{matched.set} objects. Also, see the vignette page about matched.set objects for 
-#' more information about these objects: \code{vignette("matched_set_objects", package = "PanelMatch")}.
-#' The \code{PanelMatch} object also has some additional attributes:
-#' \item{qoi}{The qoi specified in the original function call}
-#' \item{lead}{the lead window specified in the original function call}
-#' \item{forbid.treatment.reversal}{logial value matching the forbid.treatment.reversal parameter provided in the function call.}
-#' \item{outcome.var}{character string matching the outcome variable provided in the original function call.}
+#' \code{matched_set()} to read more about the structure and usage of \code{matched.set} objects. 
+#' The \code{PanelMatch} object also has some additional attributes that track metadata about the specification, like the names of the unit and time identifier variables.
 #' 
 #' @references Imai, Kosuke, In Song Kim, and Erik Wang (2023)
 #' @author Adam Rauh <amrauh@umich.edu>, In Song Kim <insong@mit.edu>, Erik Wang
@@ -72,19 +55,29 @@
 #'
 #' @examples
 #' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
 #' # create subset of data for simplicity
-#' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-#'                          treatment = "dem", refinement.method = "ps.match", 
-#'                          data = dem.sub, match.missing = TRUE, 
+#' PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+#'                          refinement.method = "ps.match", 
+#'                          match.missing = TRUE, 
 #'                          covs.formula = ~ tradewb,
 #'                          size.match = 5, qoi = "att",
-#'                          outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-#'
+#'                          lead = 0:4, 
+#'                          forbid.treatment.reversal = FALSE)
+#' # include lagged variables
+#' PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+#'                          refinement.method = "ps.weight", 
+#'                          match.missing = TRUE, 
+#'                          covs.formula = ~ tradewb + I(lag(tradewb, 1:4)) + I(lag(y, 1:4)),
+#'                          size.match = 5, qoi = "att",
+#'                          lead = 0:4, 
+#'                          forbid.treatment.reversal = FALSE)
 #'
 #' @export
-PanelMatch <- function(lag, time.id, unit.id, 
-                       treatment, outcome.var,
-                       refinement.method, data,qoi,
+PanelMatch <- function(panel.data, 
+                       lag, 
+                       refinement.method,
+                       qoi,
                        size.match = 10,
                        match.missing = TRUE,
                        covs.formula = NULL,
@@ -99,11 +92,53 @@ PanelMatch <- function(lag, time.id, unit.id,
                        placebo.test = FALSE) 
 {
 
+  if (!inherits(panel.data, "PanelData")) 
+  {
+    stop("Please provide a PanelData object.")
+  } else { 
+    ordered.data <- panel.data  
+  }
+  
+  attr(ordered.data, "unit.id") -> unit.id
+  attr(ordered.data, "time.id") -> time.id
+  attr(ordered.data, "outcome") -> outcome.var
+  attr(ordered.data, "treatment") -> treatment
+  
+  if (!matching && match.missing)
+  {
+    old.lag <- lag
+    lag <- 1
+  }
+  if (listwise.delete & match.missing) stop("set match.missing = FALSE when listwise.delete = TRUE")
+  if (lag < 1) stop("please specify a lag value >= 1")
+  
+  
+  if (!all(refinement.method %in% c("mahalanobis", "ps.weight", "ps.match", "ps.msm.weight", "CBPS.msm.weight",
+                                    "CBPS.weight", "CBPS.match", "none"))) stop("please choose a valid refinement method")
+  
+  if (forbid.treatment.reversal)
+  {
+    if (isFALSE(qoi %in% c("att", "art")))
+      stop("forbid.treatment.reversal = TRUE only valid for qoi = att or qoi = art")
+  }
+  
+  if(!is.null(restrict.control.period))
+  {
+    if(restrict.control.period < 1) stop("restricted control period specification must be >=1")
+    if(restrict.control.period > lag) stop("restricted control period specification cannot be greater than lag")
+  }
+  if (any(lead < 0)) stop("Please provide positive lead values. Please see the placebo_test function for more.")
+  if (!all(qoi %in% c("att", "atc", "ate", "art"))) stop("please choose a valid qoi")
+  if(any(is.na(ordered.data[, unit.id]))) stop("Cannot have NA unit ids")
+  if (!forbid.treatment.reversal & all(refinement.method %in% c("CBPS.msm.weight", "ps.msm.weight")))
+  {
+    stop("please set forbid.treatment.reversal to TRUE for msm methods")
+  }
   
   res <- panel_match(lag, time.id, unit.id, treatment,
                 refinement.method,
                 size.match,
-                data,
+                ordered.data,
                 match.missing,
                 covs.formula,
                 verbose,
@@ -116,15 +151,19 @@ PanelMatch <- function(lag, time.id, unit.id,
                 listwise.delete,
                 use.diagonal.variance.matrix,
                 restrict.control.period,
-                placebo.test)
-  
+                placebo.test, 
+                old.lag)
+  attr(res, "unit.id") <- unit.id
+  attr(res, "time.id") <- time.id
+  attr(res, "outcome") <- outcome.var
+  attr(res, "treatment") <- treatment
   return(res)
 }
 
 panel_match <- function(lag, time.id, unit.id, treatment,
                         refinement.method,
                         size.match,
-                        data,
+                        ordered.data,
                         match.missing,
                         covs.formula,
                         verbose,
@@ -137,66 +176,11 @@ panel_match <- function(lag, time.id, unit.id, treatment,
                         listwise.delete,
                         use.diagonal.variance.matrix,
                         restrict.control.period,
-                        placebo.test)
+                        placebo.test, 
+                        old.lag = NULL)
 {
-  if (!matching && match.missing)
-  {
-    old.lag <- lag
-    lag <- 1
-  }
-  ##############################error checking
-  if (listwise.delete & match.missing) stop("set match.missing = FALSE when listwise.delete = TRUE")
-  if (lag < 1) stop("please specify a lag value >= 1")
-  if (any(class(data) != "data.frame")) stop("please convert data to data.frame class")
   
-  if (!all(refinement.method %in% c("mahalanobis", "ps.weight", "ps.match", "CBPS.weight", "CBPS.match", "none"))) stop("please choose a valid refinement method")
-  if (any(duplicated(data[, c(unit.id, time.id)]))) stop("Time, unit combinations should uniquely identify rows. Please remove duplicates")
-  if (!inherits(data[, unit.id], "integer") && !inherits(data[, unit.id], "numeric")) stop("please convert unit id column to integer or numeric")
-  if ( !all(c(time.id, unit.id, treatment, outcome.var)  %in% colnames(data)) ) stop("time id, unit id, outcome, or treatment column name invalid")
-  if (forbid.treatment.reversal)
-  {
-    if (isFALSE(qoi %in% c("att", "art")))
-    stop("forbid.treatment.reversal = TRUE only valid for qoi = att or qoi = art")
-  }
   
-  if(!is.null(restrict.control.period))
-  {
-    if(restrict.control.period < 1) stop("restricted control period specification must be >=1")
-    if(restrict.control.period > lag) stop("restricted control period specification cannot be greater than lag")
-  }
-  if (any(lead < 0)) stop("Please provide positive lead values. Please see the placebo_test function for more.")
-  if (!all(qoi %in% c("att", "atc", "ate", "art"))) stop("please choose a valid qoi")
-  if(any(is.na(data[, unit.id]))) stop("Cannot have NA unit ids")
-  
-  ##############################error checking
-  
-  ## balance the panel 
-  if (any(table(data[, unit.id]) != max(table(data[, unit.id]))))
-  {
-    testmat <- data.table::dcast(data.table::as.data.table(data), 
-                                 formula = paste0(unit.id, "~", time.id),
-                                 value.var = treatment)
-    d <- data.table::melt(data.table(testmat), 
-                          id = unit.id, 
-                          variable = time.id, 
-                          value = treatment,
-                          variable.factor = FALSE, value.name = treatment)
-    d <- data.frame(d)[,c(1,2)]
-    class(d[, 2]) <- "integer"
-    data <- merge(data.table::data.table(d), 
-                  data.table::data.table(data), 
-                  all.x = TRUE, 
-                  by = c(unit.id, time.id))
-    data <- as.data.frame(data)
-    
-  }
-  
-
-  ordered.data <- data[order(data[,unit.id], data[,time.id]), ]
-  ordered.data <- check_time_data(ordered.data, time.id)
-  
-  othercols <- colnames(ordered.data)[!colnames(ordered.data) %in% c(time.id, unit.id, treatment)]
-  ordered.data <- ordered.data[, c(unit.id, time.id, treatment, othercols)] #reorder columns 
   if(!is.null(exact.match.variables))
   {
     for(variable in exact.match.variables)

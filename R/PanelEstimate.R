@@ -1,20 +1,13 @@
-#' PanelEstimate
-#'
-#' \code{PanelEstimate} estimates a causal quantity of interest, including the average treatment effect for
+#' Estimate a causal quantity of interest
+#' 
+#' Estimate a causal quantity of interest, including the average treatment effect for
 #' treated or control units (att and atc, respectively), the average effect of treatment reversal on reversed units (art), or average treatment effect (ate), as specified in \code{PanelMatch()}.
 #' This is done by estimating the counterfactual outcomes for each treated unit using
 #' matched sets. Users will provide matched sets that were obtained by the
-#' \code{PanelMatch} function and obtain point estimates via a
-#' weighted average computation with weighted bootstrap standard errors. Point estimates and standard errors will be
-#' produced for each period in the lead window specified by the \code{lead} argument from \code{PanelMatch()}.
-#' Users may run multiple estimations by providing lists of each argument to the function.
-#' However, in this format, every argument must be explicitly specified in each configuration
-#' and must adhere to the same data types/structures outlined below. 
-#'
+#' \code{PanelMatch} function and obtain point estimates and standard errors.
 #' @param sets A \code{PanelMatch} object attained via the
 #' \code{PanelMatch()} function.
-#' @param data The same time series cross sectional data set provided to the \code{PanelMatch()} function used to produce
-#' the matched sets.
+#' @param panel.data The same time series cross sectional data set provided to the \code{PanelMatch()} function used to produce the matched sets. This should be a \code{PanelData} object.
 #' @param se.method Method used for calculating standard errors, provided as a character string. Users must choose between "bootstrap", "conditional", and "unconditional" methods. Default is "bootstrap". "bootstrap" uses a block bootstrapping procedure to calculate standard errors. The conditional method calculates the variance of the estimator, assuming independence across units but not across time. The unconditional method also calculates the variance of the estimator analytically, but makes no such assumptions about independence across units. When the quantity of interest is "att", "atc", or "art", all methods are available. Only "bootstrap" is available for the ate. If \code{pooled} argument is TRUE, then only bootstrap is available. 
 #' @param number.iterations If using bootstrapping for calculating standard errors, this is the number of bootstrap iterations. Provide as integer. If \code{se.method} is not equal to "bootstrap", this argument has no effect.
 #' @param df.adjustment A logical value indicating whether or not a
@@ -24,12 +17,12 @@
 #' estimates for statistical inference. The default is .95.
 #' @param moderator The name of a moderating variable, provided as a character string. If a moderating variable is provided,the returned object will be a list of \code{PanelEstimate} objects. The names of the list will reflect the different values of the moderating variable. More specifically, the moderating variable values will be converted to syntactically proper names using \code{make.names()}.
 #' @param pooled Logical. If TRUE, estimates and standard errors are returned for treatment effects pooled across the entire lead window. Only available for \code{se.method = ``bootstrap''}
-#' @param include.placebo.test Logical. If TRUE, a placebo test is run and returned in the results. The placebo test uses the same specifications for calculating standard errors as the main results. That is, standard errors are calculated according to the user provided \code{se.method} and \code{confidence.level} arguments (and, if applicable, parallelization specifications). If these are invalid for some reason, an error will be thrown. 
+#' @param include.placebo.test Logical. If TRUE, a placebo test is run and returned in the results. The placebo test uses the same specifications for calculating standard errors as the main results. That is, standard errors are calculated according to the user provided \code{se.method} and \code{confidence.level} arguments (and, if applicable, parallelization specifications). 
 #' @param parallel Logical. If TRUE and \code{se.method = ``bootstrap''}, bootstrap procedure will be parallelized. Default is FALSE. If \code{se.method} is not set to \code{bootstrap}, this option does nothing.
 #' @param num.cores Integer. Specifies the number of cores to use for parallelization. If \code{se.method = ``bootstrap''} and \code{parallel = TRUE}, then this option will take effect. Otherwise, it will do nothing. 
 #' 
 #' @return \code{PanelEstimate} returns a list of class
-#' `PanelEstimate' containing the following components:
+#' \code{PanelEstimate} containing the following components:
 #' \item{estimates}{the point estimates of the quantity of interest for the lead periods specified}
 #' \item{se.method}{The method used to calculate standard errors. This is the same as the argument provided to the function.}
 #' \item{bootstrapped.estimates}{the bootstrapped point estimate values, when applicable}
@@ -49,16 +42,21 @@
 #'
 #' @examples
 #' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+#' dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
 #' # create subset of data for simplicity
-#' PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-#'                         treatment = "dem", refinement.method = "ps.match", 
-#'                          data = dem.sub, match.missing = TRUE, covs.formula = ~ tradewb, 
-#'                          size.match = 5, qoi = "att", outcome.var = "y", 
-#'                          lead = 0:4, forbid.treatment.reversal = TRUE)
-#' PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
+#' PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+#'                          refinement.method = "ps.match", 
+#'                          match.missing = TRUE, 
+#'                          covs.formula = ~ tradewb,
+#'                          size.match = 5, qoi = "att",
+#'                          lead = 0:4, 
+#'                          forbid.treatment.reversal = FALSE)
+#' PE.results <- PanelEstimate(sets = PM.results, 
+#'                panel.data = dem.sub.panel, 
+#'                se.method = "unconditional")
 #'
 #' @export
-PanelEstimate <- function(sets, data,
+PanelEstimate <- function(sets, panel.data,
                           number.iterations = 1000,
                           df.adjustment = FALSE,
                           confidence.level = .95,
@@ -69,7 +67,7 @@ PanelEstimate <- function(sets, data,
                           parallel = FALSE,
                           num.cores = 1)
 {
-  
+  if (!inherits(panel.data, "PanelData")) stop("Please provide a PanelData object.")
   if (pooled && !identical(se.method, "bootstrap"))
   {
     se.method = "bootstrap"
@@ -112,9 +110,13 @@ PanelEstimate <- function(sets, data,
     } else {
       att.sets.in <- NULL
     }
-    # again, functionally treating art and att the same for moderating variable functionality. n need to create separate argument for art sets
-    ordered.data <- data[order(data[,unit.id], data[,time.id]), ]
-    set.list <- handle_moderating_variable(ordered.data = ordered.data,
+    # again, functionally treating art and att the same for moderating variable functionality. 
+    # no need to create separate argument for art sets
+    attr(panel.data, "unit.id") -> unit.id
+    attr(panel.data, "time.id") -> time.id
+    attr(panel.data, "treatment") -> treatment
+    
+    set.list <- handle_moderating_variable(ordered.data = panel.data,
                                            att.sets = att.sets.in,
                                            atc.sets = sets[["atc"]],
                                            moderator = moderator,
@@ -130,7 +132,7 @@ PanelEstimate <- function(sets, data,
                   number.iterations = number.iterations,
                   df.adjustment = df.adjustment, 
                   confidence.level = confidence.level, 
-                  data = data,
+                  data = panel.data,
                   pooled = pooled, 
                   include.placebo.test = include.placebo.test)
     
@@ -142,7 +144,7 @@ PanelEstimate <- function(sets, data,
                          df.adjustment = df.adjustment, 
                          confidence.level = confidence.level, 
                          sets = sets, 
-                         data = data,
+                         data = panel.data,
                          pooled = pooled, 
                          include.placebo.test = include.placebo.test,
                          parallel = parallel,
@@ -200,41 +202,6 @@ panel_estimate <- function(sets,
   treatment <- attr(t.sets, "treatment.var")
   unit.id <- attr(t.sets, "id.var")
   time.id <- attr(t.sets, "t.var")
-  
-  if (any(class(data) != "data.frame")){
-    stop("please convert data to data.frame class")
-  } 
-  
-  if (!inherits(data[, unit.id], "integer") && 
-      !inherits(data[, unit.id], "numeric")){
-    stop("please convert unit id column to integer or numeric")
-  } 
-  
-  
-  if (any(table(data[, unit.id]) != max(table(data[, unit.id]))))
-  {
-    testmat <- data.table::dcast(data.table::as.data.table(data),
-                                 formula = paste0(unit.id, "~", time.id),
-                                 value.var = treatment)
-    d <- data.table::melt(data.table(testmat), id = unit.id,
-                          variable = time.id, value = treatment,
-                          variable.factor = FALSE, value.name = treatment)
-    d <- data.frame(d)[,c(1,2)]
-    class(d[, 2]) <- "integer"
-    data <- merge(data.table::data.table(d), 
-                  data.table::data.table(data), 
-                  all.x = TRUE, by = c(unit.id, time.id))
-    data <- as.data.frame(data)
-    
-  }
-  
-  data <- data[order(data[,unit.id], data[,time.id]), ]
-  data <- check_time_data(data, time.id)
-  
-  if (any(is.na(data[, unit.id]))) stop("Cannot have NA unit ids")
-  
-  othercols <- colnames(data)[!colnames(data) %in% c(time.id, unit.id, treatment)]
-  data <- data[, c(unit.id, time.id, treatment, othercols)] #reorder columns
   
   
   if (identical(qoi, "ate"))

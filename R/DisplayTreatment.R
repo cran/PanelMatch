@@ -1,12 +1,6 @@
-#' DisplayTreatment
-#' 
-#' \code{DisplayTreatment} visualizes the treatment distribution
-#' across units and time in a panel data set
+#' Visualize the treatment distribution across units and time in a panel data set
 #'
-#' @param unit.id Name of the unit identifier variable as a character string
-#' @param time.id Name of the time identifier variable as a character string
-#' @param treatment Name of the treatment variable as a character string
-#' @param data data.frame that contains the time series cross sectional data used for matching and estimation. Unit and time data must be integers. Time data must also be formatted as sequential integers that increase by one.
+#' @param panel.data \code{PanelData} object
 #' @param color.of.treated Color of the treated observations provided as a character string (this includes hex values). Default is red.
 #' @param color.of.untreated Color of the untreated observations provided as a character string (this includes hex values). Default is blue.
 #' @param title Title of the plot provided as character string
@@ -22,56 +16,58 @@
 #' @param legend.labels Character vector of length two describing the
 #' labels of the legend to be shown in the plot. ggplot2 standards are used.
 #' @param decreasing Logical. Determines if display order should be increasing or decreasing by the amount of treatment received. Default is \code{decreasing} = FALSE.
-#' @param matched.set a matched.set object (optional) containing a single treated unit and a set of matched controls. If provided, this set will be highlighted on the resulting plot.
-#' @param show.set.only logical. If TRUE, only the treated unit and control units contained in the provided \code{matched.set} object will be shown on the plot. 
+#' @param matched.set (optional) a \code{matched.set} object containing a single treated unit and a set of matched controls. If provided, this set will be highlighted on the resulting plot.
+#' @param show.set.only (optional) logical. If TRUE, only the treated unit and control units contained in the provided \code{matched.set} object will be shown on the plot. 
 #' Default is FALSE. If no \code{matched.set} is provided, then this argument will have no effect.
-#' @param gradient.weights logical. If TRUE, the "darkness"/shade of units in the provided \code{matched.set} object will be displayed according to their weight. Control units with higher weights will appear darker on the resulting plot. Control units with lower weights will appear lighter. This argument has no effect unless a \code{matched.set} is provided.
+#' @param gradient.weights (optional) logical. If TRUE, the "darkness"/shade of units in the provided \code{matched.set} object will be displayed according to their weight. Control units with higher weights will appear darker on the resulting plot. Control units with lower weights will appear lighter. This argument has no effect unless a \code{matched.set} is provided.
 #' @param hide.x.tick.label logical. If TRUE, x axis tick labels are not shown. Default is FALSE. 
 #' @param hide.y.tick.label logical. If TRUE, y axis tick labels are not shown. Default is FALSE.
 #' @param dense.plot logical. if TRUE, lines between tiles are removed on resulting plot. This is useful for producing more readable plots in situations where the number of units and/or time periods is very high.
-#' @return \code{DisplayTreatment} returns a treatment variation plot (using ggplot2 geom_tile() or geom_raster()),
-#' which visualizes the variation of treatment across unit and time.
+#' @return \code{DisplayTreatment} returns a treatment variation plot (generated via ggplot2 geom_tile() or geom_raster()),
+#' which visualizes the variation of treatment across units and time. The results can be customized using ggplot2 syntax.
 #' @author In Song Kim <insong@mit.edu>, Erik Wang
 #' <haixiao@Princeton.edu>, Adam Rauh <amrauh@umich.edu>, and Kosuke Imai <imai@harvard.edu>
 #'
 #' @examples 
-#' 
-#' DisplayTreatment(unit.id = "wbcode2",
-#'                  time.id = "year", legend.position = "none",
-#'                  xlab = "year", ylab = "Country Code",
-#'                  treatment = "dem", data = dem)
+#' dem.panel <- PanelData(panel.data = dem, 
+#'               unit.id = "wbcode2", 
+#'               time.id = "year", 
+#'               treatment = "dem", 
+#'               outcome = "y")
+#' DisplayTreatment(panel.data = dem.panel,
+#'                  legend.position = "none",
+#'                  xlab = "year", ylab = "Country Code")
 #' 
 #'
 #' @export
-DisplayTreatment <- function(unit.id, time.id, treatment, data, 
-                              color.of.treated = "red",
-                              color.of.untreated = "blue", 
-                              title = "Treatment Distribution \n Across Units and Time",
-                              xlab = "Time", ylab = "Unit",
-                              x.size = NULL, y.size = NULL,
-                              legend.position= "none",
-                              x.angle = NULL,
-                              y.angle = NULL,
-                              legend.labels = c("not treated", "treated"),
-                              decreasing = FALSE,
-                              matched.set = NULL,
-                              show.set.only = FALSE,
-                              hide.x.tick.label = FALSE,
-                              hide.y.tick.label = FALSE,
-                              gradient.weights = FALSE,
-                              dense.plot = FALSE)
-
+DisplayTreatment <- function(panel.data,
+                             color.of.treated = "red",
+                             color.of.untreated = "blue", 
+                             title = "Treatment Distribution \n Across Units and Time",
+                             xlab = "Time", ylab = "Unit",
+                             x.size = NULL, y.size = NULL,
+                             legend.position= "none",
+                             x.angle = NULL,
+                             y.angle = NULL,
+                             legend.labels = c("not treated", "treated"),
+                             decreasing = FALSE,
+                             matched.set = NULL,
+                             show.set.only = FALSE,
+                             hide.x.tick.label = FALSE,
+                             hide.y.tick.label = FALSE,
+                             gradient.weights = FALSE,
+                             dense.plot = FALSE) 
 {
+  
+  if (!inherits(panel.data, "PanelData")) stop("Please provide a PanelData object.")
+  
+  
+  attr(panel.data, "unit.id") -> unit.id
+  attr(panel.data, "time.id") -> time.id
+  attr(panel.data, "treatment") -> treatment
   
   alphaweight <- NULL #--as-cran checks need this
   
-  
-  if (any(class(data) != "data.frame")) stop("please convert data to data.frame class")
-  
-  if (any(is.na(data[, unit.id]))) stop("Cannot have NA unit ids")
-  
-  data <- data[order(data[,unit.id], data[,time.id]), ]
-  data <- check_time_data(data, time.id)
   
   
   if (gradient.weights && is.null(matched.set)) stop("gradient.weights cannot be TRUE without a provided matched set")
@@ -80,7 +76,7 @@ DisplayTreatment <- function(unit.id, time.id, treatment, data,
     matched.set <- NULL
   }
   
-  data <- na.omit(data[c(unit.id, time.id, treatment)])
+  data <- na.omit(panel.data[c(unit.id, time.id, treatment)])
   # rename variables to match with the object names in the loop below
   colnames(data) <- c("unit.id", "time.id", "treatment")  
   

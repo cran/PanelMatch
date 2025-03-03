@@ -2,7 +2,7 @@
 % Please edit documentation in R/matched_set_obj.R
 \name{matched_set}
 \alias{matched_set}
-\title{matched_set}
+\title{A constructor for the matched.set class.}
 \usage{
 matched_set(matchedsets, id, t, L, t.var, id.var, treatment.var)
 }
@@ -22,7 +22,7 @@ matched_set(matchedsets, id, t, L, t.var, id.var, treatment.var)
 \item{treatment.var}{string specifying the treatment variable.
 
 The constructor function returns a \code{matched.set} object.
-\code{matched.set} objects are a modified lists. Each element in the list is a vector of ids
+\code{matched.set} objects are a modified list. Each element in the list is a vector of ids
 corresponding to the control unit ids in a matched set.
 Additionally, these vectors might have additional attributes -- "weights". These correspond to the
 weights assigned to each control unit,
@@ -46,9 +46,6 @@ are distinct from \code{PanelMatch} objects. \code{matched.set} objects are ofte
 \item{max.match.size}{Maximum size of the matched sets after refinement. This argument only affects results when using a matching method}
 }
 \description{
-\code{matched_set} is a constructor for the \code{matched.set} class.
-}
-\details{
 Users should never need to use this function by itself. See below for more about \code{matched.set} objects.
 }
 \author{

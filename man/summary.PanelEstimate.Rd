@@ -2,14 +2,22 @@
 % Please edit documentation in R/PanelEstimateObject.R
 \name{summary.PanelEstimate}
 \alias{summary.PanelEstimate}
-\title{Get summaries of PanelEstimate objects/calculations}
+\title{Get summaries of PanelEstimate objects and calculations}
 \usage{
-\method{summary}{PanelEstimate}(object, verbose = TRUE, bias.corrected = FALSE, ...)
+\method{summary}{PanelEstimate}(
+  object,
+  confidence.level = NULL,
+  verbose = FALSE,
+  bias.corrected = FALSE,
+  ...
+)
 }
 \arguments{
-\item{object}{A PanelEstimate object}
+\item{object}{A \code{PanelEstimate} object}
 
-\item{verbose}{logical indicating whether or not output should be printed in an expanded form. Default is TRUE}
+\item{confidence.level}{Confidence level to be used for confidence interval calculations. Must be numeric between 0 and 1. If NULL, confidence level from \code{PanelEstimate()} specification is used.}
+
+\item{verbose}{logical indicating whether or not output should be printed in an expanded form. Default is FALSE}
 
 \item{bias.corrected}{logical indicating whether or not bias corrected estimates should be provided. Default is FALSE. This argument only applies for standard errors calculated with the bootstrap.}
 
@@ -22,16 +30,19 @@ estimates and confidence intervals
 }
 \examples{
 dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
+dem.sub.panel <- PanelData(dem.sub, "wbcode2", "year", "dem", "y")
 # create subset of data for simplicity
-PM.results <- PanelMatch(lag = 4, time.id = "year", unit.id = "wbcode2", 
-                         treatment = "dem", refinement.method = "ps.weight", 
-                         data = dem.sub, match.missing = TRUE, 
+PM.results <- PanelMatch(panel.data = dem.sub.panel, lag = 4, 
+                         refinement.method = "ps.match", 
+                         match.missing = TRUE, 
                          covs.formula = ~ tradewb,
                          size.match = 5, qoi = "att",
-                         outcome.var = "y", lead = 0:4, forbid.treatment.reversal = FALSE)
-PE.results <- PanelEstimate(sets = PM.results, data = dem.sub, se.method = "unconditional")
+                         lead = 0:4, 
+                         forbid.treatment.reversal = FALSE)
+PE.results <- PanelEstimate(sets = PM.results, 
+                            panel.data = dem.sub.panel, 
+                            se.method = "unconditional")
 summary(PE.results)
-
-
+summary(PE.results, confidence.level = .9)
 
 }
