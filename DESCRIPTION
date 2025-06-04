@@ -2,8 +2,8 @@ Package: PanelMatch
 Type: Package
 Title: Matching Methods for Causal Inference with Time-Series
         Cross-Sectional Data
-Version: 3.0.0
-Date: 2025-02-26
+Version: 3.1.1
+Date: 2025-06-04
 Authors@R: c(
   person("In Song", "Kim", email = "insong@mit.edu", role = c("aut", "cre")),
   person("Adam", "Rauh", email = "amrauh@umich.edu", role = c("aut")),
@@ -40,11 +40,11 @@ RoxygenNote: 7.3.1
 Suggests: knitr, rmarkdown, testthat (>= 2.1.0)
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2025-03-01 22:09:31 UTC; adamrauh
+Packaged: 2025-06-04 05:49:30 UTC; adamrauh
 Author: In Song Kim [aut, cre],
   Adam Rauh [aut],
   Erik Wang [aut],
   Kosuke Imai [aut]
 Maintainer: In Song Kim <insong@mit.edu>
 Repository: CRAN
-Date/Publication: 2025-03-03 09:50:08 UTC
+Date/Publication: 2025-06-04 14:40:02 UTC
