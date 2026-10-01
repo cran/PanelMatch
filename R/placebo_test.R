@@ -1,7 +1,7 @@
 #' Conduct a placebo test
 #'
 #'
-#' Calculate the results of a placebo test, looking at the change in outcome at time = t-1, compared to other pre-treatment periods in the lag window.
+#' Calculate the results of a placebo test, looking at the change in outcome at time = t-1, compared to other pre-treatment periods in the lag window. Users may notice small differences in results returned by \code{PanelMatch()} when \code{placebo.test = TRUE} versus when \code{placebo.test = FALSE}, even if the specifications are otherwise identical. This is because placebo tests require the presence of outcome data for units over the lag window, which is not a default requirement. As a result, when \code{placebo.test = TRUE}, the size and number of matched sets might be reduced.
 #' @param pm.obj an object of class \code{PanelMatch}
 #' @param panel.data \code{PanelData} object
 #' @param lag.in integer indicating earliest the time period(s) in the future for which the placebo test change in outcome will be calculated. Calculations will be made over the period t - max(lag) to t-2, where t is the time of treatment. The results are similar to those returned by \code{PanelEstimate()}, except t-1 is used as the period of comparison, rather than the lead window. If not specified, the placebo test is conducted for periods from t - max(lag) to t-2.
@@ -13,7 +13,7 @@
 #' @param num.cores Integer. Specifies the number of cores to use for parallelization. If \code{se.method = "bootstrap"} and \code{parallel = TRUE}, then this option will take effect. Otherwise, it will do nothing. 
 #' @param ... extra arguments to be passed to \code{plot()}
 #'
-#' @return list with 2 or 3 elements: "estimate", which contains the point estimates for the test, "standard.errors" which has the standard errors for each period and optionally "bootstrapped.estimates", containing the bootstrapped point estimates for the test for each specified lag window period.
+#' @return list with 3 or 4 elements: "estimates", which contains the point estimates for the test, "standard.errors" which has the standard errors for each period, "conf.intervals", a matrix giving the confidence interval bounds for each period (calculated via \code{confint.PanelEstimate()} at the \code{confidence.level} specified), and optionally "bootstrapped.estimates", containing the bootstrapped point estimates for the test for each specified lag window period.
 #'
 #' @examples
 #' dem.sub <- dem[dem[, "wbcode2"] <= 100, ]
@@ -46,6 +46,8 @@ placebo_test <- function(pm.obj,
   {
     stop("Placebo test cannot be executed. Please ensure placebo.test = TRUE in PanelMatch()")
   }
+  
+  warning("Note: Placebo test requires presence of outcome data over lag window.\nMatched sets may differ from placebo.test = FALSE.", call. = FALSE)
   
   df.adjustment <- FALSE
   qoi.in <- attr(pm.obj, "qoi")
@@ -95,6 +97,13 @@ placebo_test <- function(pm.obj,
   {
     plot(placebo.results.raw, ...)
   } else {
+    
+    # placebo.results.raw carries class "PanelEstimate" (the same object type
+    # produced for the main estimates), so its confidence intervals are
+    # available directly via the existing confint.PanelEstimate() method --
+    # no need to recompute significance from scratch downstream.
+    ci <- confint(placebo.results.raw)
+    
     if (identical(se.method,"bootstrap"))
     {
       colnames(placebo.results.raw$bootstrapped.estimates) <- 
@@ -105,11 +114,13 @@ placebo_test <- function(pm.obj,
                    na.rm = TRUE)
       ret.results <- list(estimates = placebo.results.raw$estimate,
                           bootstrapped.estimates = placebo.results.raw$bootstrapped.estimates,
-                          standard.errors = ses)
+                          standard.errors = ses,
+                          conf.intervals = ci)
     } else
     {
       ret.results <- list(estimates = placebo.results.raw$estimate,
-                          standard.errors = placebo.results.raw$standard.error)
+                          standard.errors = placebo.results.raw$standard.error,
+                          conf.intervals = ci)
     }
     
     return(ret.results)
